@@ -1,0 +1,43 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 5) readonly buffer ResidualBuffer { dvec2 residual[]; };
+layout(std430, binding = 6) writeonly buffer PartialBuffer { dvec4 partial[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+
+uniform uint elementCount;
+uniform uint pressureControlEnabled;
+
+shared double sumSquared[256];
+shared double maximumAbsolute[256];
+shared double validCount[256];
+
+const uint FLUID = 0u;
+
+void main() {
+    const uint localIndex = gl_LocalInvocationID.x;
+    const uint index = gl_GlobalInvocationID.x;
+    const bool solverActive = pressureControlEnabled == 0u ||
+        uint(pressureControl[0] + 0.5) == 0u;
+    const bool valid = solverActive && index < elementCount && cellType[index] == FLUID;
+    sumSquared[localIndex] = valid ? residual[index].y : 0.0;
+    maximumAbsolute[localIndex] = valid ? residual[index].x : 0.0;
+    validCount[localIndex] = valid ? 1.0 : 0.0;
+    barrier();
+
+    for (uint stride = 128u; stride > 0u; stride >>= 1u) {
+        if (localIndex < stride) {
+            sumSquared[localIndex] += sumSquared[localIndex + stride];
+            maximumAbsolute[localIndex] = max(
+                maximumAbsolute[localIndex], maximumAbsolute[localIndex + stride]);
+            validCount[localIndex] += validCount[localIndex + stride];
+        }
+        barrier();
+    }
+    if (localIndex == 0u) {
+        partial[gl_WorkGroupID.x] = dvec4(
+            sumSquared[0], maximumAbsolute[0], validCount[0], 0.0);
+    }
+}

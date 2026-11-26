@@ -1,0 +1,27 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer PreviousCellTypeBuffer { uint previousCellType[]; };
+layout(std430, binding = 2) buffer PressureBuffer { double pressure[]; };
+layout(std430, binding = 3) buffer PressureScratchBuffer { double pressureScratch[]; };
+layout(std430, binding = 4) buffer CounterBuffer { uint counter[]; };
+
+uniform uint elementCount;
+uniform uint preserveFluidPressure;
+
+const uint FLUID = 0u;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= elementCount) return;
+    const uint current = cellType[index];
+    const uint previous = previousCellType[index];
+    if (current != previous) atomicAdd(counter[2], 1u);
+    if (current == FLUID) atomicAdd(counter[3], 1u);
+    if (current != FLUID || previous != FLUID || preserveFluidPressure == 0u) {
+        pressure[index] = 0.0;
+        pressureScratch[index] = 0.0;
+    }
+}

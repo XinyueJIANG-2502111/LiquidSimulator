@@ -1,0 +1,276 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Diagnostics">
+      <UniqueIdentifier>{D132C903-C448-4A34-87A0-4439D613F321}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{58ADAC86-031C-457B-8C79-C4E6A70378A1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependencies">
+      <UniqueIdentifier>{B9795C20-88EC-4722-88CF-B8DB1D1278C8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation">
+      <UniqueIdentifier>{FB350486-1523-469D-8AC8-C6A8B1052388}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tests">
+      <UniqueIdentifier>{DC2712CD-A651-4612-8749-2063B080A009}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Visualization">
+      <UniqueIdentifier>{AF0B2516-E829-43A9-8F38-D46D8419CA96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Desktop">
+      <UniqueIdentifier>{E4C07CA0-8BB5-4833-895C-E07523E25B11}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\diagnostics\CpuBenchmark.cpp">
+      <Filter>Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\diagnostics\DynamicBenchmark.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\GpuDivergenceValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\GpuMacValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\InterfaceValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\LevelSetDynamicValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\GpuLevelSetValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\GpuVofValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\VofValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\diagnostics\DesktopInteractionValidation.cpp"><Filter>Diagnostics</Filter></ClCompile>
+    <ClCompile Include="src\desktop\ContainerMotionInput.cpp"><Filter>Desktop</Filter></ClCompile>
+    <ClCompile Include="src\desktop\DesktopPerformanceMetrics.cpp"><Filter>Desktop</Filter></ClCompile>
+    <ClCompile Include="src\desktop\DesktopSettledState.cpp"><Filter>Desktop</Filter></ClCompile>
+    <ClCompile Include="src\desktop\WindowsMoveLoopAdapter.cpp"><Filter>Desktop</Filter></ClCompile>
+    <ClCompile Include="src\simulation\gpu\GpuMacGrid.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\simulation\gpu\GpuVolumeFraction.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\simulation\gpu\GpuDynamicFreeSurfaceStepper.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\simulation\gpu\GpuAsyncDynamicFreeSurfaceStepper.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\ShaderProgram.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="deps\glad\src\gl.c">
+      <Filter>Dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\MacGrid.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\FluidStepper.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\DynamicFreeSurfaceStepper.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\FreeSurfacePressureProjection.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\MarkerParticles.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\InterfaceGeometry.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\LevelSetInterface.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\DynamicLevelSet.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\VolumeFractionField.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\simulation\mac\CoupledLevelSetVOF.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\simulation\mac\GhostFluidPressureProjection.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\PressureProjection.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\Scenarios.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\VelocityAdvection.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\mac\VelocityExtrapolation.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\simulation\SimulationStepInput.cpp"><Filter>Simulation</Filter></ClCompile>
+    <ClCompile Include="src\tests\Phase1Tests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="src\visualization\FieldVisualization.cpp">
+      <Filter>Visualization</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\diagnostics\CpuBenchmark.h">
+      <Filter>Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\diagnostics\DynamicBenchmark.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\GpuDivergenceValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\GpuMacValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\InterfaceValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\LevelSetDynamicValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\GpuLevelSetValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\GpuVofValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\VofValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\diagnostics\DesktopInteractionValidation.h"><Filter>Diagnostics</Filter></ClInclude>
+    <ClInclude Include="src\desktop\ContainerMotionInput.h"><Filter>Desktop</Filter></ClInclude>
+    <ClInclude Include="src\desktop\DesktopPerformanceMetrics.h"><Filter>Desktop</Filter></ClInclude>
+    <ClInclude Include="src\desktop\DesktopSettledState.h"><Filter>Desktop</Filter></ClInclude>
+    <ClInclude Include="src\desktop\WindowsMoveLoopAdapter.h"><Filter>Desktop</Filter></ClInclude>
+    <ClInclude Include="src\simulation\gpu\GpuMacGrid.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\simulation\gpu\GpuVolumeFraction.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\simulation\gpu\GpuDynamicFreeSurfaceStepper.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\simulation\gpu\GpuAsyncDynamicFreeSurfaceStepper.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\graphics\ShaderProgram.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\MacGrid.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\FluidStepper.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\DynamicFreeSurfaceStepper.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\FreeSurfacePressureProjection.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\MarkerParticles.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\InterfaceGeometry.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\LevelSetInterface.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\DynamicLevelSet.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\VolumeFractionField.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\simulation\mac\CoupledLevelSetVOF.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\simulation\mac\GhostFluidPressureProjection.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\PressureProjection.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\Scenarios.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\VelocityAdvection.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\mac\VelocityExtrapolation.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\simulation\SimulationStepInput.h"><Filter>Simulation</Filter></ClInclude>
+    <ClInclude Include="src\tests\Phase1Tests.h">
+      <Filter>Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="src\visualization\FieldVisualization.h">
+      <Filter>Visualization</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="assets\desktop\settled_64x48.lsstate"><Filter>リソース ファイル</Filter></Content>
+    <Content Include="deps\glfw\lib-vc2022\glfw3.dll">
+      <Filter>Dependencies</Filter>
+    </Content>
+    <Content Include="shaders\compute\phase0.comp">
+      <Filter>Shaders</Filter>
+    </Content>
+    <Content Include="shaders\compute\mac_divergence.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pressure_jacobi.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pressure_residual.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pressure_project.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_velocity_advect.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_force_boundary.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_residual.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_partial.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_dot.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pcg_operator.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pcg_initialize.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pcg_scalar.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pcg_update.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pcg_direction.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_smooth.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_coarse_smooth.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_residual.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_restrict.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_prolong.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_smooth_fp32.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_coarse_smooth_fp32.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_residual_fp32.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_restrict_fp32.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_prolong_fp32.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_mg_convert.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_vector_copy.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_classification_reset.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_classification_mark.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_classification_diagnostics.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_particle_redistribute.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_pressure_sanitize.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_particle_advect.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_extrapolate_init.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_extrapolate_layer.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_dynamic_fine_operator.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_component_initialize.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_component_propagate.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_component_flags.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_component_summary.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_dynamic_coarse_operator.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_divergence.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_velocity.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_reduce_velocity_partial.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_visualize.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_advect.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_maccormack.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_area.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_redistance.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_extend_init.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_extend_layer.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_theta.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_particle_diagnostic.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_diagnostic.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_component_initialize.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_component_propagate.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\mac_levelset_component_summary.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_plic.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_flux.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_update.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_reduce.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_limit_cell.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_limit_face.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\compute\vof_repair_pair.comp"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\rendering\fullscreen.vert">
+      <Filter>Shaders</Filter>
+    </Content>
+    <Content Include="shaders\rendering\texture.frag">
+      <Filter>Shaders</Filter>
+    </Content>
+    <Content Include="shaders\rendering\vectors.vert">
+      <Filter>Shaders</Filter>
+    </Content>
+    <Content Include="shaders\rendering\vectors.frag">
+      <Filter>Shaders</Filter>
+    </Content>
+    <Content Include="shaders\rendering\gpu_particles.vert"><Filter>Shaders</Filter></Content>
+    <Content Include="shaders\rendering\gpu_particles.frag"><Filter>Shaders</Filter></Content>
+  </ItemGroup>
+</Project>

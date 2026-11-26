@@ -1,0 +1,30 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 0) readonly buffer CellTypes { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer LabelsIn { uint labelsIn[]; };
+layout(std430, binding = 2) writeonly buffer LabelsOut { uint labelsOut[]; };
+layout(std430, binding = 3) buffer Changed { uint changed; };
+uniform uvec2 gridSize;
+const uint FLUID = 0u;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= gridSize.x * gridSize.y) return;
+    if (cellType[index] != FLUID) {
+        labelsOut[index] = 0xffffffffu;
+        return;
+    }
+    const uint x = index % gridSize.x;
+    const uint y = index / gridSize.x;
+    uint label = labelsIn[index];
+    if (x > 0u && cellType[index - 1u] == FLUID) label = min(label, labelsIn[index - 1u]);
+    if (x + 1u < gridSize.x && cellType[index + 1u] == FLUID) label = min(label, labelsIn[index + 1u]);
+    if (y > 0u && cellType[index - gridSize.x] == FLUID) label = min(label, labelsIn[index - gridSize.x]);
+    if (y + 1u < gridSize.y && cellType[index + gridSize.x] == FLUID) label = min(label, labelsIn[index + gridSize.x]);
+    if (label != 0xffffffffu) {
+        label = min(label, labelsIn[label]);
+    }
+    labelsOut[index] = label;
+    if (label != labelsIn[index]) atomicOr(changed, 1u);
+}

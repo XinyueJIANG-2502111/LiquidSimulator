@@ -1,0 +1,125 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(std430, binding = 0) readonly buffer FractionBuffer { float fraction[]; };
+layout(std430, binding = 1) readonly buffer ValidBuffer { uint valid[]; };
+layout(std430, binding = 2) writeonly buffer NormalBuffer { vec2 normal[]; };
+layout(std430, binding = 3) writeonly buffer AlphaBuffer { float alpha[]; };
+layout(std430, binding = 4) writeonly buffer PlicValidBuffer { uint plicValid[]; };
+layout(std430, binding = 5) buffer CompressionBuffer { uint compression[]; };
+layout(std430, binding = 6) buffer StatusBuffer { uint status[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform uint writeCompression;
+
+bool finiteValue(float value) { return !isnan(value) && !isinf(value); }
+
+uint cellIndex(uvec2 p) { return p.y * gridSize.x + p.x; }
+
+float sampleFraction(ivec2 p, float center) {
+    p = clamp(p, ivec2(0), ivec2(gridSize) - ivec2(1));
+    uint index = uint(p.y) * gridSize.x + uint(p.x);
+    return valid[index] != 0u ? fraction[index] : center;
+}
+
+float polygonArea(vec2 vertices[8], int count) {
+    float twiceArea = 0.0;
+    for (int i = 0; i < count; ++i) {
+        vec2 a = vertices[i];
+        vec2 b = vertices[(i + 1) % count];
+        twiceArea += a.x * b.y - a.y * b.x;
+    }
+    return 0.5 * abs(twiceArea);
+}
+
+float clippedArea(vec2 n, float a, vec2 lower, vec2 upper) {
+    vec2 inputVertices[8];
+    vec2 outputVertices[8];
+    inputVertices[0] = vec2(lower.x, lower.y);
+    inputVertices[1] = vec2(upper.x, lower.y);
+    inputVertices[2] = vec2(upper.x, upper.y);
+    inputVertices[3] = vec2(lower.x, upper.y);
+    int inputCount = 4;
+    int outputCount = 0;
+    for (int i = 0; i < inputCount; ++i) {
+        vec2 current = inputVertices[i];
+        vec2 next = inputVertices[(i + 1) % inputCount];
+        float dc = dot(n, current) - a;
+        float dn = dot(n, next) - a;
+        bool currentInside = dc <= 0.0;
+        bool nextInside = dn <= 0.0;
+        if (currentInside) outputVertices[outputCount++] = current;
+        if (currentInside != nextInside) {
+            float denominator = dc - dn;
+            float t = abs(denominator) > 1.0e-20 ? dc / denominator : 0.0;
+            outputVertices[outputCount++] = mix(current, next, clamp(t, 0.0, 1.0));
+        }
+    }
+    return outputCount >= 3 ? polygonArea(outputVertices, outputCount) : 0.0;
+}
+
+void main() {
+    uvec2 p = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(p, gridSize))) return;
+    uint index = cellIndex(p);
+    if (valid[index] == 0u) {
+        normal[index] = vec2(0.0);
+        alpha[index] = 0.0;
+        plicValid[index] = 0u;
+        if (writeCompression != 0u) compression[index] = 0u;
+        return;
+    }
+
+    float f = fraction[index];
+    if (!finiteValue(f)) {
+        normal[index] = vec2(0.0);
+        alpha[index] = 0.0;
+        plicValid[index] = 0u;
+        if (writeCompression != 0u) compression[index] = 0u;
+        atomicAdd(status[1], 1u);
+        return;
+    }
+    if (writeCompression != 0u) compression[index] = f >= 0.5 ? 1u : 0u;
+    if (f <= 1.0e-7 || f >= 1.0 - 1.0e-7) {
+        normal[index] = vec2(1.0, 0.0);
+        alpha[index] = f <= 1.0e-7 ? 0.0 : cellSize.x;
+        plicValid[index] = 1u;
+        return;
+    }
+
+    ivec2 ip = ivec2(p);
+    float gx = (sampleFraction(ip + ivec2(1, 0), f) - sampleFraction(ip - ivec2(1, 0), f)) /
+        (2.0 * cellSize.x);
+    float gy = (sampleFraction(ip + ivec2(0, 1), f) - sampleFraction(ip - ivec2(0, 1), f)) /
+        (2.0 * cellSize.y);
+    vec2 n = -vec2(gx, gy);
+    float magnitude = length(n);
+    if (!(magnitude > 1.0e-8) || !finiteValue(magnitude)) {
+        normal[index] = vec2(0.0);
+        alpha[index] = 0.0;
+        plicValid[index] = 0u;
+        atomicAdd(status[0], 1u);
+        return;
+    }
+    n /= magnitude;
+    vec2 corners[4] = vec2[4](vec2(0.0), vec2(cellSize.x, 0.0), cellSize,
+        vec2(0.0, cellSize.y));
+    float lower = dot(n, corners[0]);
+    float upper = lower;
+    for (int k = 1; k < 4; ++k) {
+        float projection = dot(n, corners[k]);
+        lower = min(lower, projection);
+        upper = max(upper, projection);
+    }
+    float target = clamp(f, 0.0, 1.0) * cellSize.x * cellSize.y;
+    for (int iteration = 0; iteration < 32; ++iteration) {
+        float middle = 0.5 * (lower + upper);
+        if (clippedArea(n, middle, vec2(0.0), cellSize) < target) lower = middle;
+        else upper = middle;
+    }
+    normal[index] = n;
+    alpha[index] = 0.5 * (lower + upper);
+    plicValid[index] = 1u;
+}

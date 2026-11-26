@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{51f7019f-75db-45d2-9703-17a0b27918c0}</ProjectGuid>
+    <RootNamespace>LiquidSimulator</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared" >
+  </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="deps\Dependencies.props" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 /permissive- %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="deps\glad\src\gl.c" />
+    <ClCompile Include="src\diagnostics\CpuBenchmark.cpp" />
+    <ClCompile Include="src\diagnostics\DynamicBenchmark.cpp" />
+    <ClCompile Include="src\diagnostics\GpuDivergenceValidation.cpp" />
+    <ClCompile Include="src\diagnostics\GpuMacValidation.cpp" />
+    <ClCompile Include="src\diagnostics\InterfaceValidation.cpp" />
+    <ClCompile Include="src\diagnostics\LevelSetDynamicValidation.cpp" />
+    <ClCompile Include="src\diagnostics\GpuLevelSetValidation.cpp" />
+    <ClCompile Include="src\diagnostics\GpuVofValidation.cpp" />
+    <ClCompile Include="src\diagnostics\VofValidation.cpp" />
+    <ClCompile Include="src\diagnostics\DesktopInteractionValidation.cpp" />
+    <ClCompile Include="src\desktop\ContainerMotionInput.cpp" />
+    <ClCompile Include="src\desktop\DesktopPerformanceMetrics.cpp" />
+    <ClCompile Include="src\desktop\DesktopSettledState.cpp" />
+    <ClCompile Include="src\desktop\WindowsMoveLoopAdapter.cpp" />
+    <ClCompile Include="src\graphics\ShaderProgram.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\simulation\mac\MacGrid.cpp" />
+    <ClCompile Include="src\simulation\mac\FluidStepper.cpp" />
+    <ClCompile Include="src\simulation\mac\DynamicFreeSurfaceStepper.cpp" />
+    <ClCompile Include="src\simulation\mac\FreeSurfacePressureProjection.cpp" />
+    <ClCompile Include="src\simulation\mac\MarkerParticles.cpp" />
+    <ClCompile Include="src\simulation\mac\InterfaceGeometry.cpp" />
+    <ClCompile Include="src\simulation\mac\LevelSetInterface.cpp" />
+    <ClCompile Include="src\simulation\mac\DynamicLevelSet.cpp" />
+    <ClCompile Include="src\simulation\mac\VolumeFractionField.cpp" />
+    <ClCompile Include="src\simulation\mac\CoupledLevelSetVOF.cpp" />
+    <ClCompile Include="src\simulation\mac\GhostFluidPressureProjection.cpp" />
+    <ClCompile Include="src\simulation\mac\PressureProjection.cpp" />
+    <ClCompile Include="src\simulation\mac\Scenarios.cpp" />
+    <ClCompile Include="src\simulation\mac\VelocityAdvection.cpp" />
+    <ClCompile Include="src\simulation\mac\VelocityExtrapolation.cpp" />
+    <ClCompile Include="src\simulation\SimulationStepInput.cpp" />
+    <ClCompile Include="src\simulation\gpu\GpuMacGrid.cpp" />
+    <ClCompile Include="src\simulation\gpu\GpuVolumeFraction.cpp" />
+    <ClCompile Include="src\simulation\gpu\GpuDynamicFreeSurfaceStepper.cpp" />
+    <ClCompile Include="src\simulation\gpu\GpuAsyncDynamicFreeSurfaceStepper.cpp" />
+    <ClCompile Include="src\tests\Phase1Tests.cpp" />
+    <ClCompile Include="src\visualization\FieldVisualization.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\diagnostics\CpuBenchmark.h" />
+    <ClInclude Include="src\diagnostics\DynamicBenchmark.h" />
+    <ClInclude Include="src\diagnostics\GpuDivergenceValidation.h" />
+    <ClInclude Include="src\diagnostics\GpuMacValidation.h" />
+    <ClInclude Include="src\diagnostics\InterfaceValidation.h" />
+    <ClInclude Include="src\diagnostics\LevelSetDynamicValidation.h" />
+    <ClInclude Include="src\diagnostics\GpuLevelSetValidation.h" />
+    <ClInclude Include="src\diagnostics\GpuVofValidation.h" />
+    <ClInclude Include="src\diagnostics\VofValidation.h" />
+    <ClInclude Include="src\diagnostics\DesktopInteractionValidation.h" />
+    <ClInclude Include="src\desktop\ContainerMotionInput.h" />
+    <ClInclude Include="src\desktop\DesktopPerformanceMetrics.h" />
+    <ClInclude Include="src\desktop\DesktopSettledState.h" />
+    <ClInclude Include="src\desktop\WindowsMoveLoopAdapter.h" />
+    <ClInclude Include="src\graphics\ShaderProgram.h" />
+    <ClInclude Include="src\simulation\mac\MacGrid.h" />
+    <ClInclude Include="src\simulation\mac\FluidStepper.h" />
+    <ClInclude Include="src\simulation\mac\DynamicFreeSurfaceStepper.h" />
+    <ClInclude Include="src\simulation\mac\FreeSurfacePressureProjection.h" />
+    <ClInclude Include="src\simulation\mac\MarkerParticles.h" />
+    <ClInclude Include="src\simulation\mac\InterfaceGeometry.h" />
+    <ClInclude Include="src\simulation\mac\LevelSetInterface.h" />
+    <ClInclude Include="src\simulation\mac\DynamicLevelSet.h" />
+    <ClInclude Include="src\simulation\mac\VolumeFractionField.h" />
+    <ClInclude Include="src\simulation\mac\CoupledLevelSetVOF.h" />
+    <ClInclude Include="src\simulation\mac\GhostFluidPressureProjection.h" />
+    <ClInclude Include="src\simulation\mac\PressureProjection.h" />
+    <ClInclude Include="src\simulation\mac\Scenarios.h" />
+    <ClInclude Include="src\simulation\mac\VelocityAdvection.h" />
+    <ClInclude Include="src\simulation\mac\VelocityExtrapolation.h" />
+    <ClInclude Include="src\simulation\SimulationStepInput.h" />
+    <ClInclude Include="src\simulation\gpu\GpuMacGrid.h" />
+    <ClInclude Include="src\simulation\gpu\GpuVolumeFraction.h" />
+    <ClInclude Include="src\simulation\gpu\GpuDynamicFreeSurfaceStepper.h" />
+    <ClInclude Include="src\simulation\gpu\GpuAsyncDynamicFreeSurfaceStepper.h" />
+    <ClInclude Include="src\tests\Phase1Tests.h" />
+    <ClInclude Include="src\visualization\FieldVisualization.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="assets\desktop\settled_64x48.lsstate">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\compute\phase0.comp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\compute\mac_divergence.comp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\compute\mac_pressure_jacobi.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pressure_residual.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pressure_project.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_velocity_advect.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_force_boundary.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_residual.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_partial.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_dot.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pcg_operator.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pcg_initialize.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pcg_scalar.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pcg_update.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pcg_direction.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_smooth.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_coarse_smooth.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_residual.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_restrict.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_prolong.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_smooth_fp32.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_coarse_smooth_fp32.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_residual_fp32.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_restrict_fp32.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_prolong_fp32.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_mg_convert.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_vector_copy.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_classification_reset.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_classification_mark.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_classification_diagnostics.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_particle_redistribute.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_pressure_sanitize.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_particle_advect.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_extrapolate_init.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_extrapolate_layer.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_dynamic_fine_operator.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_component_initialize.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_component_propagate.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_component_flags.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_component_summary.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_dynamic_coarse_operator.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_divergence.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_velocity.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_reduce_velocity_partial.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_visualize.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_advect.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_maccormack.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_area.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_redistance.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_extend_init.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_extend_layer.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_theta.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_particle_diagnostic.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_velocity_diagnostic.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_component_initialize.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_component_propagate.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\mac_levelset_component_summary.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_plic.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_flux.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_update.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_reduce.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_limit_cell.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_limit_face.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\compute\vof_repair_pair.comp"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\rendering\fullscreen.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\rendering\texture.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\rendering\vectors.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\rendering\vectors.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shaders\rendering\gpu_particles.vert"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="shaders\rendering\gpu_particles.frag"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="deps\glfw\lib-vc2022\glfw3.dll">
+      <Link>glfw3.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -1,0 +1,16 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 0) readonly buffer CellTypes { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer Labels { uint labels[]; };
+layout(std430, binding = 2) readonly buffer ComponentFlags { uint componentFlags[]; };
+layout(std430, binding = 3) buffer Status { uint status[]; };
+uniform uint elementCount;
+const uint FLUID = 0u;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= elementCount || cellType[index] != FLUID || labels[index] != index) return;
+    atomicAdd(status[3], 1u);
+    if ((componentFlags[index] & 1u) == 0u) atomicAdd(status[4], 1u);
+}

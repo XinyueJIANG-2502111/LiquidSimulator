@@ -1,0 +1,38 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer ParticleBuffer { vec4 particle[]; };
+layout(std430, binding = 1) readonly buffer PhiBuffer { float phi[]; };
+layout(std430, binding = 2) readonly buffer ConfidenceBuffer { uint confidence[]; };
+layout(std430, binding = 3) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uint particleCount;
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float distanceTolerance;
+
+float samplePhi(vec2 position, out bool reliable) {
+    vec2 q = clamp(position / cellSize - vec2(0.5), vec2(0.0), vec2(gridSize - uvec2(1u)));
+    uvec2 lo = uvec2(floor(q));
+    uvec2 hi = min(lo + uvec2(1u), gridSize - uvec2(1u));
+    vec2 f = q - vec2(lo);
+    uint i00 = lo.y * gridSize.x + lo.x;
+    uint i10 = lo.y * gridSize.x + hi.x;
+    uint i01 = hi.y * gridSize.x + lo.x;
+    uint i11 = hi.y * gridSize.x + hi.x;
+    reliable = confidence[i00] != 0u && confidence[i10] != 0u &&
+        confidence[i01] != 0u && confidence[i11] != 0u;
+    return mix(mix(phi[i00], phi[i10], f.x), mix(phi[i01], phi[i11], f.x), f.y);
+}
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= particleCount || particle[i].z < 0.5) return;
+    bool reliable = false;
+    float value = samplePhi(particle[i].xy, reliable);
+    if (reliable && value > 0.0) {
+        atomicAdd(diagnostic[4], 1u);
+        if (value > distanceTolerance) atomicAdd(diagnostic[10], 1u);
+    }
+}

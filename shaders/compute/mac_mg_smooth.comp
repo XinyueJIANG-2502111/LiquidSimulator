@@ -1,0 +1,37 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CorrectionInput { double correctionIn[]; };
+layout(std430, binding = 1) readonly buffer RightHandSide { double rightHandSide[]; };
+layout(std430, binding = 2) readonly buffer Diagonal { double diagonal[]; };
+layout(std430, binding = 3) readonly buffer Weights { dvec4 weights[]; };
+layout(std430, binding = 4) readonly buffer ActiveMask { uint activeMask[]; };
+layout(std430, binding = 5) writeonly buffer CorrectionOutput { double correctionOut[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+
+uniform uvec2 gridSize;
+uniform double relaxationFactor;
+uniform uint pressureControlEnabled;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    const uint count = gridSize.x * gridSize.y;
+    if (index >= count) return;
+    if (pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u) return;
+    if (activeMask[index] == 0u || diagonal[index] <= 0.0) {
+        correctionOut[index] = 0.0;
+        return;
+    }
+
+    const uint x = index % gridSize.x;
+    const uint y = index / gridSize.x;
+    const dvec4 w = weights[index];
+    double neighborSum = 0.0;
+    if (x > 0u) neighborSum += w.x * correctionIn[index - 1u];
+    if (x + 1u < gridSize.x) neighborSum += w.y * correctionIn[index + 1u];
+    if (y > 0u) neighborSum += w.z * correctionIn[index - gridSize.x];
+    if (y + 1u < gridSize.y) neighborSum += w.w * correctionIn[index + gridSize.x];
+    const double jacobi = (rightHandSide[index] + neighborSum) / diagonal[index];
+    correctionOut[index] = mix(correctionIn[index], jacobi, relaxationFactor);
+}

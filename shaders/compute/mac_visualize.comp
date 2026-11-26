@@ -1,0 +1,63 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer PressureBuffer { double pressure[]; };
+layout(std430, binding = 3) readonly buffer DivergenceBuffer { float divergence[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 5) readonly buffer ParticleCellCountBuffer { uint particleCellCount[]; };
+layout(std430, binding = 6) readonly buffer ClassificationDiagnosticBuffer { uint diagnosticFlag[]; };
+layout(rgba32f, binding = 0) writeonly uniform image2D outputImage;
+
+uniform uvec2 gridSize;
+uniform uint mode;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+const uint SOLID = 2u;
+
+vec4 signedColor(float value, float scale) {
+    const float amount = clamp(abs(value) * scale, 0.0, 1.0);
+    return value >= 0.0
+        ? vec4(0.08 + 0.85 * amount, 0.08, 0.12, 1.0)
+        : vec4(0.08, 0.18, 0.15 + 0.80 * amount, 1.0);
+}
+
+void main() {
+    const uvec2 cell = gl_GlobalInvocationID.xy;
+    if (cell.x >= gridSize.x || cell.y >= gridSize.y) return;
+    const uint index = cell.y * gridSize.x + cell.x;
+    vec4 color;
+    if (mode == 0u) {
+        color = cellType[index] == FLUID ? vec4(0.04, 0.35, 0.92, 1.0)
+            : (cellType[index] == AIR ? vec4(0.015, 0.02, 0.035, 1.0)
+            : vec4(0.34, 0.36, 0.40, 1.0));
+    } else if (mode == 1u) {
+        const uint uStride = gridSize.x + 1u;
+        const float centerU = 0.5 * (u[cell.y * uStride + cell.x] +
+            u[cell.y * uStride + cell.x + 1u]);
+        const float centerV = 0.5 * (v[cell.y * gridSize.x + cell.x] +
+            v[(cell.y + 1u) * gridSize.x + cell.x]);
+        const float speed = length(vec2(centerU, centerV));
+        color = vec4(clamp(speed * 0.18, 0.0, 1.0),
+            clamp(speed * 0.08, 0.0, 0.65), 0.12, 1.0);
+    } else if (mode == 2u) {
+        color = signedColor(float(pressure[index]), 0.035);
+    } else if (mode == 3u) {
+        color = signedColor(divergence[index], 0.20);
+    } else if (mode == 4u) {
+        const float density = clamp(float(particleCellCount[index]) / 8.0, 0.0, 1.0);
+        color = vec4(density, density * density, 0.08 + 0.92 * (1.0 - density), 1.0);
+    } else {
+        const uint flags = diagnosticFlag[index];
+        color = cellType[index] == SOLID ? vec4(0.34, 0.36, 0.40, 1.0)
+            : ((flags & 1u) != 0u ? vec4(1.0, 0.0, 0.75, 1.0)
+            : ((flags & 2u) != 0u ? vec4(1.0, 0.48, 0.0, 1.0)
+            : ((flags & 4u) != 0u ? vec4(1.0, 1.0, 0.0, 1.0)
+            : (cellType[index] == FLUID ? vec4(0.04, 0.35, 0.92, 1.0)
+            : vec4(0.015, 0.02, 0.035, 1.0)))));
+    }
+    imageStore(outputImage, ivec2(cell), color);
+}

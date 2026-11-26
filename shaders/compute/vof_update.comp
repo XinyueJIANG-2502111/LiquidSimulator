@@ -1,0 +1,53 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(std430, binding = 0) readonly buffer SourceBuffer { float sourceFraction[]; };
+layout(std430, binding = 1) writeonly buffer TargetBuffer { float targetFraction[]; };
+layout(std430, binding = 2) readonly buffer ValidBuffer { uint valid[]; };
+layout(std430, binding = 3) readonly buffer CompressionBuffer { uint compression[]; };
+layout(std430, binding = 4) readonly buffer XFluxBuffer { float xFlux[]; };
+layout(std430, binding = 5) readonly buffer YFluxBuffer { float yFlux[]; };
+layout(std430, binding = 6) readonly buffer UBuffer { float u[]; };
+layout(std430, binding = 7) readonly buffer VBuffer { float v[]; };
+layout(std430, binding = 8) buffer CompressionVolumeBuffer { float compressionVolume[]; };
+layout(std430, binding = 9) buffer StatusBuffer { uint status[]; };
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+uniform uint xDirection;
+uniform uint highPrecision;
+
+bool finiteValue(float value) { return !isnan(value) && !isinf(value); }
+
+void main() {
+    uvec2 p = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(p, gridSize))) return;
+    uint index = p.y * gridSize.x + p.x;
+    if (valid[index] == 0u) { targetFraction[index] = 0.0; return; }
+    float netFlux; float directionalDivergence;
+    if (xDirection != 0u) {
+        uint left = p.y * (gridSize.x + 1u) + p.x;
+        netFlux = xFlux[left + 1u] - xFlux[left];
+        directionalDivergence = (u[left + 1u] - u[left]) / cellSize.x;
+    } else {
+        uint bottom = p.y * gridSize.x + p.x;
+        netFlux = yFlux[bottom + gridSize.x] - yFlux[bottom];
+        directionalDivergence = (v[bottom + gridSize.x] - v[bottom]) / cellSize.y;
+    }
+    float compressionFraction = float(compression[index]) * timeStep * directionalDivergence;
+    float value;
+    if (highPrecision != 0u) {
+        double preciseCompression = double(compression[index]) * double(timeStep) *
+            double(directionalDivergence);
+        double preciseValue = double(sourceFraction[index]) - double(netFlux) /
+            (double(cellSize.x) * double(cellSize.y)) + preciseCompression;
+        value = float(preciseValue);
+        compressionFraction = float(preciseCompression);
+    } else {
+        value = sourceFraction[index] - netFlux / (cellSize.x * cellSize.y) + compressionFraction;
+    }
+    targetFraction[index] = value;
+    compressionVolume[index] += compressionFraction * cellSize.x * cellSize.y;
+    if (!finiteValue(value)) atomicAdd(status[1], 1u);
+    else if (value < -5.0e-6 || value > 1.0 + 5.0e-6) atomicAdd(status[2], 1u);
+}

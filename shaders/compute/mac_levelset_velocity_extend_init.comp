@@ -1,0 +1,50 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalInput { float uInput[]; };
+layout(std430, binding = 1) readonly buffer VerticalInput { float vInput[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) readonly buffer PhiBuffer { float phi[]; };
+layout(std430, binding = 4) readonly buffer ConfidenceBuffer { uint confidence[]; };
+layout(std430, binding = 5) writeonly buffer HorizontalOutput { float uOutput[]; };
+layout(std430, binding = 6) writeonly buffer VerticalOutput { float vOutput[]; };
+layout(std430, binding = 7) writeonly buffer HorizontalValid { uint uValid[]; };
+layout(std430, binding = 8) writeonly buffer VerticalValid { uint vValid[]; };
+layout(std430, binding = 9) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uvec2 gridSize;
+const uint FLUID = 0u;
+const uint SOLID = 2u;
+
+uint cellIndex(uvec2 cell) { return cell.y * gridSize.x + cell.x; }
+
+void main() {
+    uvec2 face = gl_GlobalInvocationID.xy;
+    if (face.y < gridSize.y && face.x <= gridSize.x) {
+        uint index = face.y * (gridSize.x + 1u) + face.x;
+        bool boundary = face.x == 0u || face.x == gridSize.x;
+        uvec2 left = uvec2(face.x > 0u ? face.x - 1u : 0u, face.y);
+        uvec2 right = uvec2(min(face.x, gridSize.x - 1u), face.y);
+        uint leftIndex = cellIndex(left);
+        uint rightIndex = cellIndex(right);
+        bool blocked = boundary || cellType[leftIndex] == SOLID || cellType[rightIndex] == SOLID;
+        bool seed = !blocked && (cellType[leftIndex] == FLUID || cellType[rightIndex] == FLUID);
+        uOutput[index] = blocked ? 0.0 : uInput[index];
+        uValid[index] = seed ? 1u : 0u;
+        if (seed) atomicAdd(diagnostic[32], 1u);
+    }
+    if (face.x < gridSize.x && face.y <= gridSize.y) {
+        uint index = face.y * gridSize.x + face.x;
+        bool boundary = face.y == 0u || face.y == gridSize.y;
+        uvec2 below = uvec2(face.x, face.y > 0u ? face.y - 1u : 0u);
+        uvec2 above = uvec2(face.x, min(face.y, gridSize.y - 1u));
+        uint belowIndex = cellIndex(below);
+        uint aboveIndex = cellIndex(above);
+        bool blocked = boundary || cellType[belowIndex] == SOLID || cellType[aboveIndex] == SOLID;
+        bool seed = !blocked && (cellType[belowIndex] == FLUID || cellType[aboveIndex] == FLUID);
+        vOutput[index] = blocked ? 0.0 : vInput[index];
+        vValid[index] = seed ? 1u : 0u;
+        if (seed) atomicAdd(diagnostic[32], 1u);
+    }
+}

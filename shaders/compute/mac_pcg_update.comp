@@ -1,0 +1,42 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 2) buffer PressureBuffer { double pressure[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 5) buffer ResidualBuffer { double residual[]; };
+layout(std430, binding = 6) readonly buffer DirectionBuffer { double direction[]; };
+layout(std430, binding = 7) readonly buffer ApBuffer { double matrixDirection[]; };
+layout(std430, binding = 8) writeonly buffer PreconditionedBuffer { double preconditioned[]; };
+layout(std430, binding = 9) readonly buffer ScalarBuffer { double scalar[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+
+uniform uint elementCount;
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform uint pressureControlEnabled;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+
+void addDiagonal(uvec2 neighbor, double coefficient, inout double diagonal) {
+    const uint index = neighbor.y * gridSize.x + neighbor.x;
+    if (cellType[index] == FLUID || cellType[index] == AIR) diagonal += coefficient;
+}
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= elementCount || cellType[index] != FLUID || scalar[3] != 0.0 ||
+        (pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u)) return;
+    pressure[index] += scalar[1] * direction[index];
+    residual[index] -= scalar[1] * matrixDirection[index];
+    const uvec2 cell = uvec2(index % gridSize.x, index / gridSize.x);
+    const double inverseDx2 = 1.0 / (double(cellSize.x) * double(cellSize.x));
+    const double inverseDy2 = 1.0 / (double(cellSize.y) * double(cellSize.y));
+    double diagonal = 0.0;
+    if (cell.x > 0u) addDiagonal(cell - uvec2(1u, 0u), inverseDx2, diagonal);
+    if (cell.x + 1u < gridSize.x) addDiagonal(cell + uvec2(1u, 0u), inverseDx2, diagonal);
+    if (cell.y > 0u) addDiagonal(cell - uvec2(0u, 1u), inverseDy2, diagonal);
+    if (cell.y + 1u < gridSize.y) addDiagonal(cell + uvec2(0u, 1u), inverseDy2, diagonal);
+    preconditioned[index] = diagonal > 0.0 ? residual[index] / diagonal : 0.0;
+}

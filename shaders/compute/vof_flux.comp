@@ -1,0 +1,91 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(std430, binding = 0) readonly buffer FractionBuffer { float fraction[]; };
+layout(std430, binding = 1) readonly buffer ValidBuffer { uint valid[]; };
+layout(std430, binding = 2) readonly buffer NormalBuffer { vec2 normal[]; };
+layout(std430, binding = 3) readonly buffer AlphaBuffer { float alpha[]; };
+layout(std430, binding = 4) readonly buffer PlicValidBuffer { uint plicValid[]; };
+layout(std430, binding = 5) readonly buffer UBuffer { float u[]; };
+layout(std430, binding = 6) readonly buffer VBuffer { float v[]; };
+layout(std430, binding = 7) writeonly buffer FluxBuffer { float flux[]; };
+layout(std430, binding = 8) buffer StatusBuffer { uint status[]; };
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+uniform uint xDirection;
+
+bool finiteValue(float value) { return !isnan(value) && !isinf(value); }
+
+float polygonArea(vec2 vertices[8], int count) {
+    float twiceArea = 0.0;
+    for (int i = 0; i < count; ++i) {
+        vec2 a = vertices[i]; vec2 b = vertices[(i + 1) % count];
+        twiceArea += a.x * b.y - a.y * b.x;
+    }
+    return 0.5 * abs(twiceArea);
+}
+
+float clippedArea(vec2 n, float a, vec2 lower, vec2 upper) {
+    vec2 inputVertices[8]; vec2 outputVertices[8];
+    inputVertices[0] = vec2(lower.x, lower.y); inputVertices[1] = vec2(upper.x, lower.y);
+    inputVertices[2] = vec2(upper.x, upper.y); inputVertices[3] = vec2(lower.x, upper.y);
+    int outputCount = 0;
+    for (int i = 0; i < 4; ++i) {
+        vec2 current = inputVertices[i]; vec2 next = inputVertices[(i + 1) % 4];
+        float dc = dot(n, current) - a; float dn = dot(n, next) - a;
+        bool ci = dc <= 0.0; bool ni = dn <= 0.0;
+        if (ci) outputVertices[outputCount++] = current;
+        if (ci != ni) {
+            float denominator = dc - dn;
+            float t = abs(denominator) > 1.0e-20 ? dc / denominator : 0.0;
+            outputVertices[outputCount++] = mix(current, next, clamp(t, 0.0, 1.0));
+        }
+    }
+    return outputCount >= 3 ? polygonArea(outputVertices, outputCount) : 0.0;
+}
+
+void main() {
+    uvec2 face = gl_GlobalInvocationID.xy;
+    uvec2 faceGrid = xDirection != 0u ? uvec2(gridSize.x + 1u, gridSize.y) :
+        uvec2(gridSize.x, gridSize.y + 1u);
+    if (any(greaterThanEqual(face, faceGrid))) return;
+    uint faceIndex = face.y * faceGrid.x + face.x;
+    bool boundary = xDirection != 0u ? (face.x == 0u || face.x == gridSize.x) :
+        (face.y == 0u || face.y == gridSize.y);
+    if (boundary) { flux[faceIndex] = 0.0; return; }
+    ivec2 lowCell = ivec2(face);
+    ivec2 highCell = ivec2(face);
+    if (xDirection != 0u) lowCell.x -= 1; else lowCell.y -= 1;
+    uint lowIndex = uint(lowCell.y) * gridSize.x + uint(lowCell.x);
+    uint highIndex = uint(highCell.y) * gridSize.x + uint(highCell.x);
+    if (valid[lowIndex] == 0u || valid[highIndex] == 0u) {
+        flux[faceIndex] = 0.0;
+        return;
+    }
+    float speed = xDirection != 0u ? u[faceIndex] : v[faceIndex];
+    if (!finiteValue(speed)) { flux[faceIndex] = 0.0; atomicAdd(status[3], 1u); return; }
+    ivec2 donor = ivec2(face);
+    if (xDirection != 0u) donor.x += speed > 0.0 ? -1 : 0;
+    else donor.y += speed > 0.0 ? -1 : 0;
+    uint donorIndex = uint(donor.y) * gridSize.x + uint(donor.x);
+    float swept = min(abs(speed) * timeStep, xDirection != 0u ? cellSize.x : cellSize.y);
+    if (swept <= 0.0 || fraction[donorIndex] <= 1.0e-7) { flux[faceIndex] = 0.0; return; }
+    vec2 lower = vec2(0.0); vec2 upper = cellSize;
+    if (xDirection != 0u) {
+        if (speed > 0.0) lower.x = cellSize.x - swept; else upper.x = swept;
+    } else {
+        if (speed > 0.0) lower.y = cellSize.y - swept; else upper.y = swept;
+    }
+    float amount;
+    if (fraction[donorIndex] >= 1.0 - 1.0e-7) {
+        amount = swept * (xDirection != 0u ? cellSize.y : cellSize.x);
+    } else if (plicValid[donorIndex] != 0u) {
+        amount = clippedArea(normal[donorIndex], alpha[donorIndex], lower, upper);
+    } else {
+        amount = clamp(fraction[donorIndex], 0.0, 1.0) * swept *
+            (xDirection != 0u ? cellSize.y : cellSize.x);
+        atomicAdd(status[4], 1u);
+    }
+    flux[faceIndex] = speed >= 0.0 ? amount : -amount;
+}

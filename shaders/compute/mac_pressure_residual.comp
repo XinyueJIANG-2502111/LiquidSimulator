@@ -1,0 +1,44 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 2) readonly buffer PressureBuffer { double pressure[]; };
+layout(std430, binding = 3) readonly buffer DivergenceBuffer { float divergence[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 5) writeonly buffer ResidualBuffer { dvec2 residual[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform double rhsScale;
+uniform uint pressureControlEnabled;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+
+void addNeighbor(uvec2 neighbor, double coefficient, double center, inout double laplacian) {
+    const uint index = neighbor.y * gridSize.x + neighbor.x;
+    if (cellType[index] == FLUID) laplacian += coefficient * (pressure[index] - center);
+    else if (cellType[index] == AIR) laplacian -= coefficient * center;
+}
+
+void main() {
+    const uvec2 cell = gl_GlobalInvocationID.xy;
+    if (cell.x >= gridSize.x || cell.y >= gridSize.y) return;
+    if (pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u) return;
+    const uint index = cell.y * gridSize.x + cell.x;
+    if (cellType[index] != FLUID) {
+        residual[index] = vec2(0.0);
+        return;
+    }
+    const double center = pressure[index];
+    const double inverseDx2 = 1.0 / (double(cellSize.x) * double(cellSize.x));
+    const double inverseDy2 = 1.0 / (double(cellSize.y) * double(cellSize.y));
+    double laplacian = 0.0;
+    if (cell.x > 0u) addNeighbor(cell - uvec2(1u, 0u), inverseDx2, center, laplacian);
+    if (cell.x + 1u < gridSize.x) addNeighbor(cell + uvec2(1u, 0u), inverseDx2, center, laplacian);
+    if (cell.y > 0u) addNeighbor(cell - uvec2(0u, 1u), inverseDy2, center, laplacian);
+    if (cell.y + 1u < gridSize.y) addNeighbor(cell + uvec2(0u, 1u), inverseDy2, center, laplacian);
+    const double value = laplacian - rhsScale * double(divergence[index]);
+    residual[index] = dvec2(abs(value), value * value);
+}

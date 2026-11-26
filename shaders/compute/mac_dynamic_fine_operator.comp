@@ -1,0 +1,54 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CellTypes { uint cellType[]; };
+layout(std430, binding = 1) writeonly buffer Diagonal { double diagonal[]; };
+layout(std430, binding = 2) writeonly buffer Weights { dvec4 weights[]; };
+layout(std430, binding = 3) writeonly buffer ActiveMask { uint activeMask[]; };
+layout(std430, binding = 4) buffer Status { uint status[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+
+void addNeighbor(uint neighborIndex, double coefficient, uint direction,
+                 inout double d, inout dvec4 w, inout uint activeNeighbors) {
+    const uint type = cellType[neighborIndex];
+    if (type == FLUID || type == AIR) {
+        d += coefficient;
+        ++activeNeighbors;
+    }
+    if (type == FLUID) w[direction] = coefficient;
+}
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    const uint count = gridSize.x * gridSize.y;
+    if (index >= count) return;
+    if (cellType[index] != FLUID) {
+        diagonal[index] = 0.0;
+        weights[index] = dvec4(0.0);
+        activeMask[index] = 0u;
+        return;
+    }
+
+    const uint x = index % gridSize.x;
+    const uint y = index / gridSize.x;
+    const double inverseDx2 = 1.0 / (double(cellSize.x) * double(cellSize.x));
+    const double inverseDy2 = 1.0 / (double(cellSize.y) * double(cellSize.y));
+    double d = 0.0;
+    dvec4 w = dvec4(0.0);
+    uint activeNeighbors = 0u;
+    if (x > 0u) addNeighbor(index - 1u, inverseDx2, 0u, d, w, activeNeighbors);
+    if (x + 1u < gridSize.x) addNeighbor(index + 1u, inverseDx2, 1u, d, w, activeNeighbors);
+    if (y > 0u) addNeighbor(index - gridSize.x, inverseDy2, 2u, d, w, activeNeighbors);
+    if (y + 1u < gridSize.y) addNeighbor(index + gridSize.x, inverseDy2, 3u, d, w, activeNeighbors);
+    diagonal[index] = d;
+    weights[index] = w;
+    activeMask[index] = 1u;
+    atomicAdd(status[1], 1u);
+    if (activeNeighbors == 0u) atomicAdd(status[2], 1u);
+}

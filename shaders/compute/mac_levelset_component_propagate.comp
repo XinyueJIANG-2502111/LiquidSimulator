@@ -1,0 +1,27 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(std430, binding = 0) readonly buffer InputLabelBuffer { uint inputLabel[]; };
+layout(std430, binding = 1) writeonly buffer OutputLabelBuffer { uint outputLabel[]; };
+layout(std430, binding = 2) buffer ChangedBuffer { uint changed; };
+uniform uvec2 gridSize;
+
+void includeLabel(inout uint value, uint candidate) {
+    if (candidate != 0u) value = min(value, candidate);
+}
+
+void main() {
+    uvec2 cell = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(cell, gridSize))) return;
+    uint i = cell.y * gridSize.x + cell.x;
+    uint value = inputLabel[i];
+    if (value == 0u) { outputLabel[i] = 0u; return; }
+    if (cell.x > 0u) includeLabel(value, inputLabel[i - 1u]);
+    if (cell.x + 1u < gridSize.x) includeLabel(value, inputLabel[i + 1u]);
+    if (cell.y > 0u) includeLabel(value, inputLabel[i - gridSize.x]);
+    if (cell.y + 1u < gridSize.y) includeLabel(value, inputLabel[i + gridSize.x]);
+    uint parent = inputLabel[value - 1u];
+    if (parent != 0u) value = min(value, parent);
+    outputLabel[i] = value;
+    if (value != inputLabel[i]) atomicOr(changed, 1u);
+}

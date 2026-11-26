@@ -1,0 +1,45 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer HorizontalValidBuffer { uint uValid[]; };
+layout(std430, binding = 3) readonly buffer VerticalValidBuffer { uint vValid[]; };
+layout(std430, binding = 6) writeonly buffer PartialBuffer { dvec4 partial[]; };
+
+uniform uint uCount;
+uniform uint vCount;
+shared double maximumU[256];
+shared double maximumV[256];
+
+void main() {
+    const uint localIndex = gl_LocalInvocationID.x;
+    const uint index = gl_GlobalInvocationID.x;
+    maximumU[localIndex] = index < uCount && uValid[index] != 0u
+        ? abs(double(u[index])) : 0.0;
+    maximumV[localIndex] = index < vCount && vValid[index] != 0u
+        ? abs(double(v[index])) : 0.0;
+    barrier();
+
+    for (uint stride = 128u; stride > 0u; stride >>= 1u) {
+        if (localIndex < stride) {
+            maximumU[localIndex] = max(maximumU[localIndex], maximumU[localIndex + stride]);
+            maximumV[localIndex] = max(maximumV[localIndex], maximumV[localIndex + stride]);
+        }
+        barrier();
+    }
+    if (localIndex == 0u) {
+        uint bestU = gl_WorkGroupID.x * 256u;
+        uint bestV = bestU;
+        const uint begin = bestU;
+        const uint end = min(begin + 256u, max(uCount, vCount));
+        for (uint candidate = begin; candidate < end; ++candidate) {
+            if (candidate < uCount && uValid[candidate] != 0u &&
+                abs(double(u[candidate])) == maximumU[0]) bestU = candidate;
+            if (candidate < vCount && vValid[candidate] != 0u &&
+                abs(double(v[candidate])) == maximumV[0]) bestV = candidate;
+        }
+        partial[gl_WorkGroupID.x] = dvec4(maximumU[0], maximumV[0], bestU, bestV);
+    }
+}

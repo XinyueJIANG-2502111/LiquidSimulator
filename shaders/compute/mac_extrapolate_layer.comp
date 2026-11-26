@@ -1,0 +1,75 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalInput { float uIn[]; };
+layout(std430, binding = 1) readonly buffer VerticalInput { float vIn[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) readonly buffer HorizontalValidInput { uint uValidIn[]; };
+layout(std430, binding = 4) readonly buffer VerticalValidInput { uint vValidIn[]; };
+layout(std430, binding = 5) writeonly buffer HorizontalOutput { float uOut[]; };
+layout(std430, binding = 6) writeonly buffer VerticalOutput { float vOut[]; };
+layout(std430, binding = 7) writeonly buffer HorizontalValidOutput { uint uValidOut[]; };
+layout(std430, binding = 8) writeonly buffer VerticalValidOutput { uint vValidOut[]; };
+
+uniform uvec2 gridSize;
+
+const uint SOLID = 2u;
+
+uint cellIndex(uvec2 cell) { return cell.y * gridSize.x + cell.x; }
+
+bool uBlocked(uvec2 face) {
+    return face.x == 0u || face.x == gridSize.x ||
+        cellType[cellIndex(face - uvec2(face.x > 0u ? 1u : 0u, 0u))] == SOLID ||
+        cellType[cellIndex(uvec2(min(face.x, gridSize.x - 1u), face.y))] == SOLID;
+}
+
+bool vBlocked(uvec2 face) {
+    return face.y == 0u || face.y == gridSize.y ||
+        cellType[cellIndex(uvec2(face.x, face.y > 0u ? face.y - 1u : 0u))] == SOLID ||
+        cellType[cellIndex(uvec2(face.x, min(face.y, gridSize.y - 1u)))] == SOLID;
+}
+
+void main() {
+    const uvec2 face = gl_GlobalInvocationID.xy;
+    if (face.y < gridSize.y && face.x <= gridSize.x) {
+        const uint width = gridSize.x + 1u;
+        const uint index = face.y * width + face.x;
+        if (uBlocked(face)) {
+            uOut[index] = 0.0;
+            uValidOut[index] = 0u;
+        } else if (uValidIn[index] != 0u) {
+            uOut[index] = uIn[index];
+            uValidOut[index] = 1u;
+        } else {
+            float sum = 0.0;
+            uint count = 0u;
+            if (face.x > 0u && uValidIn[index - 1u] != 0u) { sum += uIn[index - 1u]; ++count; }
+            if (face.x + 1u < width && uValidIn[index + 1u] != 0u) { sum += uIn[index + 1u]; ++count; }
+            if (face.y > 0u && uValidIn[index - width] != 0u) { sum += uIn[index - width]; ++count; }
+            if (face.y + 1u < gridSize.y && uValidIn[index + width] != 0u) { sum += uIn[index + width]; ++count; }
+            uOut[index] = count != 0u ? sum / float(count) : 0.0;
+            uValidOut[index] = count != 0u ? 1u : 0u;
+        }
+    }
+    if (face.x < gridSize.x && face.y <= gridSize.y) {
+        const uint width = gridSize.x;
+        const uint index = face.y * width + face.x;
+        if (vBlocked(face)) {
+            vOut[index] = 0.0;
+            vValidOut[index] = 0u;
+        } else if (vValidIn[index] != 0u) {
+            vOut[index] = vIn[index];
+            vValidOut[index] = 1u;
+        } else {
+            float sum = 0.0;
+            uint count = 0u;
+            if (face.x > 0u && vValidIn[index - 1u] != 0u) { sum += vIn[index - 1u]; ++count; }
+            if (face.x + 1u < width && vValidIn[index + 1u] != 0u) { sum += vIn[index + 1u]; ++count; }
+            if (face.y > 0u && vValidIn[index - width] != 0u) { sum += vIn[index - width]; ++count; }
+            if (face.y + 1u <= gridSize.y && vValidIn[index + width] != 0u) { sum += vIn[index + width]; ++count; }
+            vOut[index] = count != 0u ? sum / float(count) : 0.0;
+            vValidOut[index] = count != 0u ? 1u : 0u;
+        }
+    }
+}

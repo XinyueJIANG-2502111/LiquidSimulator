@@ -1,0 +1,21 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer DoubleInput { double doubleInputData[]; };
+layout(std430, binding = 1) writeonly buffer FloatOutput { float floatOutputData[]; };
+layout(std430, binding = 2) readonly buffer FloatInput { float floatInputData[]; };
+layout(std430, binding = 3) writeonly buffer DoubleOutput { double doubleOutputData[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+
+uniform uint elementCount;
+uniform uint direction;
+uniform uint pressureControlEnabled;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= elementCount) return;
+    if (pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u) return;
+    if (direction == 0u) floatOutputData[index] = float(doubleInputData[index]);
+    else doubleOutputData[index] = double(floatInputData[index]);
+}

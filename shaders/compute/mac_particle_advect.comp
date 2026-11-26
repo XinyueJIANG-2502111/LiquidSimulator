@@ -1,0 +1,82 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) buffer ParticleBuffer { vec4 particle[]; };
+layout(std430, binding = 4) buffer CounterBuffer { uint counter[]; };
+
+uniform uint particleCount;
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+
+const uint SOLID = 2u;
+
+vec2 clampInside(vec2 position) {
+    const vec2 epsilon = cellSize * 1.0e-3;
+    return clamp(position, epsilon, vec2(gridSize) * cellSize - epsilon);
+}
+
+bool insideSolid(vec2 position) {
+    const vec2 clamped = clampInside(position);
+    const uvec2 cell = min(uvec2(clamped / cellSize), gridSize - uvec2(1u));
+    return cellType[cell.y * gridSize.x + cell.x] == SOLID;
+}
+
+float sampleU(vec2 position) {
+    const vec2 gridPosition = clamp(position, vec2(0.0), vec2(gridSize) * cellSize) /
+        cellSize - vec2(0.0, 0.5);
+    const vec2 maximum = vec2(float(gridSize.x), float(gridSize.y - 1u));
+    const vec2 clamped = clamp(gridPosition, vec2(0.0), maximum);
+    const uvec2 low = uvec2(floor(clamped));
+    const uvec2 high = min(low + uvec2(1u), uvec2(maximum));
+    const vec2 fraction = clamped - vec2(low);
+    const uint stride = gridSize.x + 1u;
+    const float a = mix(u[low.y * stride + low.x], u[low.y * stride + high.x], fraction.x);
+    const float b = mix(u[high.y * stride + low.x], u[high.y * stride + high.x], fraction.x);
+    return mix(a, b, fraction.y);
+}
+
+float sampleV(vec2 position) {
+    const vec2 gridPosition = clamp(position, vec2(0.0), vec2(gridSize) * cellSize) /
+        cellSize - vec2(0.5, 0.0);
+    const vec2 maximum = vec2(float(gridSize.x - 1u), float(gridSize.y));
+    const vec2 clamped = clamp(gridPosition, vec2(0.0), maximum);
+    const uvec2 low = uvec2(floor(clamped));
+    const uvec2 high = min(low + uvec2(1u), uvec2(maximum));
+    const vec2 fraction = clamped - vec2(low);
+    const float a = mix(v[low.y * gridSize.x + low.x], v[low.y * gridSize.x + high.x], fraction.x);
+    const float b = mix(v[high.y * gridSize.x + low.x], v[high.y * gridSize.x + high.x], fraction.x);
+    return mix(a, b, fraction.y);
+}
+
+vec2 sampleVelocity(vec2 position) { return vec2(sampleU(position), sampleV(position)); }
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= particleCount || particle[index].z < 0.5) return;
+    const vec2 previous = particle[index].xy;
+    if (any(isnan(previous)) || any(isinf(previous))) {
+        atomicAdd(counter[1], 1u);
+        return;
+    }
+    const vec2 midpoint = clampInside(previous + 0.5 * timeStep * sampleVelocity(previous));
+    vec2 candidate = previous + timeStep * sampleVelocity(midpoint);
+    if (any(isnan(candidate)) || any(isinf(candidate))) {
+        atomicAdd(counter[1], 1u);
+        return;
+    }
+    candidate = clampInside(candidate);
+    if (insideSolid(candidate)) {
+        atomicAdd(counter[0], 1u);
+        const vec2 xOnly = clampInside(vec2(candidate.x, previous.y));
+        const vec2 yOnly = clampInside(vec2(previous.x, candidate.y));
+        if (!insideSolid(xOnly)) candidate = xOnly;
+        else if (!insideSolid(yOnly)) candidate = yOnly;
+        else candidate = previous;
+    }
+    particle[index].xy = candidate;
+}

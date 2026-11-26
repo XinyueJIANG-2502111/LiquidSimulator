@@ -1,0 +1,80 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 0) readonly buffer FineDiagonal { double fineDiagonal[]; };
+layout(std430, binding = 1) readonly buffer FineWeights { dvec4 fineWeights[]; };
+layout(std430, binding = 2) readonly buffer FineActive { uint fineActive[]; };
+layout(std430, binding = 3) readonly buffer FineComponent { uint fineComponent[]; };
+layout(std430, binding = 4) writeonly buffer CoarseDiagonal { double coarseDiagonal[]; };
+layout(std430, binding = 5) writeonly buffer CoarseWeights { dvec4 coarseWeights[]; };
+layout(std430, binding = 6) writeonly buffer CoarseActive { uint coarseActive[]; };
+layout(std430, binding = 7) writeonly buffer CoarseComponent { uint coarseComponent[]; };
+layout(std430, binding = 8) buffer BuildStatus { uint buildStatus[]; };
+
+uniform uvec2 fineSize;
+uniform uvec2 coarseSize;
+uniform uint levelIndex;
+
+void main() {
+    const uint coarseIndex = gl_GlobalInvocationID.x;
+    if (coarseIndex >= coarseSize.x * coarseSize.y) return;
+    const uvec2 coarseCell = uvec2(coarseIndex % coarseSize.x, coarseIndex / coarseSize.x);
+    const uvec2 origin = coarseCell * 2u;
+    uint component = 0xffffffffu;
+    bool any = false;
+    bool collision = false;
+    double diagonal = 0.0;
+    dvec4 weights = dvec4(0.0);
+
+    for (uint oy = 0u; oy < 2u; ++oy) {
+        for (uint ox = 0u; ox < 2u; ++ox) {
+            const uvec2 cell = origin + uvec2(ox, oy);
+            if (cell.x >= fineSize.x || cell.y >= fineSize.y) continue;
+            const uint index = cell.y * fineSize.x + cell.x;
+            if (fineActive[index] == 0u) continue;
+            any = true;
+            if (component == 0xffffffffu) component = fineComponent[index];
+            else if (component != fineComponent[index]) collision = true;
+            diagonal += fineDiagonal[index];
+        }
+    }
+
+    if (!any || collision) {
+        coarseDiagonal[coarseIndex] = 0.0;
+        coarseWeights[coarseIndex] = dvec4(0.0);
+        coarseActive[coarseIndex] = 0u;
+        coarseComponent[coarseIndex] = 0xffffffffu;
+        if (collision) atomicOr(buildStatus[levelIndex], 1u);
+        return;
+    }
+
+    for (uint oy = 0u; oy < 2u; ++oy) {
+        for (uint ox = 0u; ox < 2u; ++ox) {
+            const uvec2 cell = origin + uvec2(ox, oy);
+            if (cell.x >= fineSize.x || cell.y >= fineSize.y) continue;
+            const uint index = cell.y * fineSize.x + cell.x;
+            if (fineActive[index] == 0u) continue;
+            const dvec4 w = fineWeights[index];
+            if (cell.x > 0u && w.x != 0.0) {
+                const uvec2 neighborCoarse = (cell - uvec2(1u, 0u)) / 2u;
+                if (all(equal(neighborCoarse, coarseCell))) diagonal -= w.x; else weights.x += w.x;
+            }
+            if (cell.x + 1u < fineSize.x && w.y != 0.0) {
+                const uvec2 neighborCoarse = (cell + uvec2(1u, 0u)) / 2u;
+                if (all(equal(neighborCoarse, coarseCell))) diagonal -= w.y; else weights.y += w.y;
+            }
+            if (cell.y > 0u && w.z != 0.0) {
+                const uvec2 neighborCoarse = (cell - uvec2(0u, 1u)) / 2u;
+                if (all(equal(neighborCoarse, coarseCell))) diagonal -= w.z; else weights.z += w.z;
+            }
+            if (cell.y + 1u < fineSize.y && w.w != 0.0) {
+                const uvec2 neighborCoarse = (cell + uvec2(0u, 1u)) / 2u;
+                if (all(equal(neighborCoarse, coarseCell))) diagonal -= w.w; else weights.w += w.w;
+            }
+        }
+    }
+    coarseDiagonal[coarseIndex] = diagonal;
+    coarseWeights[coarseIndex] = weights;
+    coarseActive[coarseIndex] = 1u;
+    coarseComponent[coarseIndex] = component;
+}

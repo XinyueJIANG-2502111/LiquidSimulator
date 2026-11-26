@@ -1,0 +1,47 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(std430, binding = 0) buffer FractionBuffer { float fraction[]; };
+layout(std430, binding = 1) readonly buffer ValidBuffer { uint valid[]; };
+layout(std430, binding = 2) buffer RepairVolumeBuffer { float repairVolume[]; };
+layout(std430, binding = 3) buffer StatusBuffer { uint status[]; };
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform uint xDirection;
+uniform uint parity;
+
+bool finiteValue(float value) { return !isnan(value) && !isinf(value); }
+
+void main() {
+    uvec2 pair = gl_GlobalInvocationID.xy;
+    uvec2 a;
+    uvec2 b;
+    if (xDirection != 0u) {
+        a = uvec2(2u * pair.x + parity, pair.y);
+        b = a + uvec2(1u, 0u);
+    } else {
+        a = uvec2(pair.x, 2u * pair.y + parity);
+        b = a + uvec2(0u, 1u);
+    }
+    if (any(greaterThanEqual(b, gridSize))) return;
+    uint ia = a.y * gridSize.x + a.x;
+    uint ib = b.y * gridSize.x + b.x;
+    if (valid[ia] == 0u || valid[ib] == 0u) return;
+    float fa = fraction[ia];
+    float fb = fraction[ib];
+    if (!finiteValue(fa) || !finiteValue(fb)) return;
+
+    double da = double(fa);
+    double db = double(fb);
+    double transfer = 0.0;
+    if (da > 1.0 && db < 1.0) transfer = min(da - 1.0, 1.0 - db);
+    else if (db < 0.0 && da > 0.0) transfer = min(-db, da);
+    else if (db > 1.0 && da < 1.0) transfer = -min(db - 1.0, 1.0 - da);
+    else if (da < 0.0 && db > 0.0) transfer = -min(-da, db);
+    if (transfer == 0.0) return;
+
+    fraction[ia] = float(da - transfer);
+    fraction[ib] = float(db + transfer);
+    repairVolume[ia] += float(abs(transfer) * double(cellSize.x) * double(cellSize.y));
+    atomicAdd(status[8], 1u);
+}

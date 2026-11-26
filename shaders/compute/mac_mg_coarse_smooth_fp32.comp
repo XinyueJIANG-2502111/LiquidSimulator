@@ -1,0 +1,45 @@
+#version 460 core
+#extension GL_ARB_gpu_shader_fp64 : require
+
+layout(local_size_x = 256) in;
+layout(std430, binding = 0) buffer Correction { float correction[]; };
+layout(std430, binding = 1) readonly buffer RightHandSide { float rightHandSide[]; };
+layout(std430, binding = 2) readonly buffer Diagonal { double diagonal[]; };
+layout(std430, binding = 3) readonly buffer Weights { dvec4 weights[]; };
+layout(std430, binding = 4) readonly buffer ActiveMask { uint activeMask[]; };
+layout(std430, binding = 10) readonly buffer PressureControl { double pressureControl[]; };
+uniform uvec2 gridSize;
+uniform float relaxationFactor;
+uniform uint iterationCount;
+uniform uint pressureControlEnabled;
+shared float currentValues[256];
+shared float nextValues[256];
+
+void main() {
+    const uint i = gl_LocalInvocationID.x;
+    const uint count = gridSize.x * gridSize.y;
+    const bool valid = i < count;
+    const bool stopped = pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u;
+    currentValues[i] = valid && !stopped ? correction[i] : 0.0;
+    barrier();
+    for (uint iteration = 0u; iteration < iterationCount; ++iteration) {
+        float result = 0.0;
+        if (valid && !stopped && activeMask[i] != 0u && diagonal[i] > 0.0) {
+            const uint x = i % gridSize.x;
+            const uint y = i / gridSize.x;
+            const vec4 w = vec4(weights[i]);
+            float neighborSum = 0.0;
+            if (x > 0u) neighborSum += w.x * currentValues[i - 1u];
+            if (x + 1u < gridSize.x) neighborSum += w.y * currentValues[i + 1u];
+            if (y > 0u) neighborSum += w.z * currentValues[i - gridSize.x];
+            if (y + 1u < gridSize.y) neighborSum += w.w * currentValues[i + gridSize.x];
+            const float jacobi = (rightHandSide[i] + neighborSum) / float(diagonal[i]);
+            result = mix(currentValues[i], jacobi, relaxationFactor);
+        }
+        nextValues[i] = result;
+        barrier();
+        currentValues[i] = nextValues[i];
+        barrier();
+    }
+    if (valid && !stopped) correction[i] = currentValues[i];
+}

@@ -1,0 +1,27 @@
+#version 460 core
+
+// Phase 0 contract:
+// - One invocation writes exactly one texel, so no atomic operation is required.
+// - The CPU dispatches ceil(outputSize / localSize) workgroups.
+// - A shader-image/texture-fetch memory barrier is required before sampling.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba32f, binding = 0) uniform writeonly image2D u_outputImage;
+
+uniform float u_time;
+uniform ivec2 u_outputSize;
+
+void main() {
+    const ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, u_outputSize))) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pixel) + 0.5) / vec2(u_outputSize);
+    const float wave = 0.5 + 0.5 * sin(18.0 * length(uv - vec2(0.5)) - 2.2 * u_time);
+    const vec3 deepColor = vec3(0.025, 0.07, 0.18);
+    const vec3 brightColor = vec3(0.08, 0.75, 0.95);
+    const vec3 color = mix(deepColor, brightColor, wave);
+
+    imageStore(u_outputImage, pixel, vec4(color, 1.0));
+}

@@ -1,0 +1,92 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer PhiBuffer { float phi[]; };
+layout(std430, binding = 1) readonly buffer ConfidenceBuffer { uint confidence[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) readonly buffer PreviousCellTypeBuffer { uint previousCellType[]; };
+layout(std430, binding = 4) readonly buffer ParticleCountBuffer { uint particleCount[]; };
+layout(std430, binding = 5) writeonly buffer HorizontalThetaBuffer { float thetaU[]; };
+layout(std430, binding = 6) writeonly buffer VerticalThetaBuffer { float thetaV[]; };
+layout(std430, binding = 7) writeonly buffer HorizontalStateBuffer { uint stateU[]; };
+layout(std430, binding = 8) writeonly buffer VerticalStateBuffer { uint stateV[]; };
+layout(std430, binding = 9) readonly buffer PreviousHorizontalThetaBuffer { float previousThetaU[]; };
+layout(std430, binding = 10) readonly buffer PreviousVerticalThetaBuffer { float previousThetaV[]; };
+layout(std430, binding = 11) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float thetaMinimum;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+const uint UNUSED = 0u;
+const uint VALID = 1u;
+const uint CLAMPED = 2u;
+const uint FALLBACK = 3u;
+
+void makeTheta(uint a, uint b, out float theta, out uint state) {
+    bool face = (cellType[a] == FLUID && cellType[b] == AIR) ||
+        (cellType[b] == FLUID && cellType[a] == AIR);
+    if (!face) { theta = 1.0; state = UNUSED; return; }
+    uint fluid = cellType[a] == FLUID ? a : b;
+    uint air = fluid == a ? b : a;
+    float pf = phi[fluid];
+    float pa = phi[air];
+    if (confidence[fluid] == 0u || confidence[air] == 0u ||
+        isnan(pf) || isinf(pf) || isnan(pa) || isinf(pa) || pf >= 0.0 || pa <= 0.0) {
+        theta = 1.0; state = FALLBACK; atomicAdd(diagnostic[7], 1u); return;
+    }
+    float raw = abs(pf) / max(abs(pf) + abs(pa), 1.0e-20);
+    if (raw < thetaMinimum) {
+        theta = thetaMinimum; state = CLAMPED; atomicAdd(diagnostic[6], 1u);
+    } else {
+        theta = min(raw, 1.0); state = VALID; atomicAdd(diagnostic[5], 1u);
+    }
+}
+
+void main() {
+    uvec2 q = gl_GlobalInvocationID.xy;
+    if (q.x < gridSize.x && q.y < gridSize.y) {
+        uint i = q.y * gridSize.x + q.x;
+        float p = phi[i];
+        if (isnan(p) || isinf(p)) atomicAdd(diagnostic[1], 1u);
+        if (confidence[i] == 0u) atomicAdd(diagnostic[2], 1u);
+        if ((cellType[i] == FLUID && p >= 0.0) || (cellType[i] == AIR && p < 0.0))
+            atomicAdd(diagnostic[3], 1u);
+        if (p < 0.0) atomicAdd(diagnostic[12], 1u);
+        float coverage = clamp(0.5 - p / (2.0 * min(cellSize.x, cellSize.y)), 0.0, 1.0);
+        atomicAdd(diagnostic[11], uint(round(coverage * 65535.0)));
+    }
+    if (q.y < gridSize.y && q.x <= gridSize.x) {
+        uint face = q.y * (gridSize.x + 1u) + q.x;
+        float value = 1.0; uint state = UNUSED;
+        bool stable = false;
+        if (q.x > 0u && q.x < gridSize.x) {
+            uint a = q.y * gridSize.x + q.x - 1u;
+            uint b = a + 1u;
+            makeTheta(a, b, value, state);
+            stable = cellType[a] == previousCellType[a] && cellType[b] == previousCellType[b];
+        }
+        float delta = abs(value - previousThetaU[face]);
+        thetaU[face] = value; stateU[face] = state;
+        if (state != UNUSED && stable && delta > 1.0e-6) atomicAdd(diagnostic[8], 1u);
+        atomicMax(diagnostic[9], floatBitsToUint(delta));
+    }
+    if (q.x < gridSize.x && q.y <= gridSize.y) {
+        uint face = q.y * gridSize.x + q.x;
+        float value = 1.0; uint state = UNUSED;
+        bool stable = false;
+        if (q.y > 0u && q.y < gridSize.y) {
+            uint a = (q.y - 1u) * gridSize.x + q.x;
+            uint b = a + gridSize.x;
+            makeTheta(a, b, value, state);
+            stable = cellType[a] == previousCellType[a] && cellType[b] == previousCellType[b];
+        }
+        float delta = abs(value - previousThetaV[face]);
+        thetaV[face] = value; stateV[face] = state;
+        if (state != UNUSED && stable && delta > 1.0e-6) atomicAdd(diagnostic[8], 1u);
+        atomicMax(diagnostic[9], floatBitsToUint(delta));
+    }
+}

@@ -1,0 +1,45 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 1) buffer ParticleCellCountBuffer { uint particleCellCount[]; };
+layout(std430, binding = 2) buffer ParticleBuffer { vec4 particle[]; };
+layout(std430, binding = 3) buffer RedistributionCounterBuffer { uint counter[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform uint targetMinimum;
+uniform uint particleCapacity;
+
+const uint FLUID = 0u;
+
+vec2 deterministicOffset(uint ordinal) {
+    const vec2 offsets[8] = vec2[8](
+        vec2(0.25, 0.25), vec2(0.75, 0.25),
+        vec2(0.25, 0.75), vec2(0.75, 0.75),
+        vec2(0.50, 0.25), vec2(0.25, 0.50),
+        vec2(0.75, 0.50), vec2(0.50, 0.75));
+    return offsets[ordinal & 7u];
+}
+
+void main() {
+    const uint cellIndex = gl_GlobalInvocationID.x;
+    const uint cellCount = gridSize.x * gridSize.y;
+    if (cellIndex >= cellCount || cellType[cellIndex] != FLUID) return;
+    const uint existing = particleCellCount[cellIndex];
+    if (existing >= targetMinimum) return;
+    const uint x = cellIndex % gridSize.x;
+    const uint y = cellIndex / gridSize.x;
+    for (uint ordinal = existing; ordinal < targetMinimum; ++ordinal) {
+        const uint outputIndex = atomicAdd(counter[0], 1u);
+        if (outputIndex >= particleCapacity) {
+            atomicAdd(counter[1], 1u);
+            continue;
+        }
+        const vec2 position = (vec2(x, y) + deterministicOffset(ordinal)) * cellSize;
+        particle[outputIndex] = vec4(position, 1.0, 0.0);
+        atomicAdd(particleCellCount[cellIndex], 1u);
+        atomicAdd(counter[2], 1u);
+    }
+}

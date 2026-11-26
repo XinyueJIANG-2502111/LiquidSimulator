@@ -1,0 +1,45 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) readonly buffer PhiBuffer { float phi[]; };
+layout(std430, binding = 4) readonly buffer ConfidenceBuffer { uint confidence[]; };
+layout(std430, binding = 5) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float interfaceBandWidth;
+
+const uint FLUID = 0u;
+const uint SOLID = 2u;
+const float SCALE = 1000.0;
+
+void accumulate(uint sumIndex, uint countIndex, uint maxIndex, float value) {
+    uint scaled = uint(min(round(value * SCALE), 4294967295.0));
+    atomicAdd(diagnostic[sumIndex], scaled);
+    atomicAdd(diagnostic[countIndex], 1u);
+    atomicMax(diagnostic[maxIndex], floatBitsToUint(value));
+}
+
+void main() {
+    uvec2 cell = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(cell, gridSize))) return;
+    uint index = cell.y * gridSize.x + cell.x;
+    if (cellType[index] == SOLID) return;
+    uint uStride = gridSize.x + 1u;
+    float divergence = (u[cell.y * uStride + cell.x + 1u] -
+        u[cell.y * uStride + cell.x]) / cellSize.x +
+        (v[(cell.y + 1u) * gridSize.x + cell.x] -
+        v[cell.y * gridSize.x + cell.x]) / cellSize.y;
+    float magnitude = abs(divergence);
+    if (isnan(magnitude) || isinf(magnitude)) return;
+    if (cellType[index] == FLUID) accumulate(22u, 23u, 28u, magnitude);
+    if (confidence[index] != 0u && abs(phi[index]) <= interfaceBandWidth)
+        accumulate(24u, 25u, 29u, magnitude);
+    if (confidence[index] != 0u && phi[index] > 0.0 &&
+        phi[index] <= interfaceBandWidth)
+        accumulate(26u, 27u, 30u, magnitude);
+}

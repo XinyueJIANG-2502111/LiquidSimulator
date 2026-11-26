@@ -1,0 +1,42 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 5) readonly buffer InputBuffer { dvec4 inputValue[]; };
+layout(std430, binding = 6) writeonly buffer OutputBuffer { dvec4 outputValue[]; };
+
+uniform uint elementCount;
+
+shared double maximumU[256];
+shared double maximumV[256];
+shared double maximumUIndex[256];
+shared double maximumVIndex[256];
+
+void main() {
+    const uint localIndex = gl_LocalInvocationID.x;
+    const uint index = gl_GlobalInvocationID.x;
+    const dvec4 value = index < elementCount ? inputValue[index] : dvec4(0.0);
+    maximumU[localIndex] = value.x;
+    maximumV[localIndex] = value.y;
+    maximumUIndex[localIndex] = value.z;
+    maximumVIndex[localIndex] = value.w;
+    barrier();
+
+    for (uint stride = 128u; stride > 0u; stride >>= 1u) {
+        if (localIndex < stride) {
+            if (maximumU[localIndex + stride] > maximumU[localIndex]) {
+                maximumU[localIndex] = maximumU[localIndex + stride];
+                maximumUIndex[localIndex] = maximumUIndex[localIndex + stride];
+            }
+            if (maximumV[localIndex + stride] > maximumV[localIndex]) {
+                maximumV[localIndex] = maximumV[localIndex + stride];
+                maximumVIndex[localIndex] = maximumVIndex[localIndex + stride];
+            }
+        }
+        barrier();
+    }
+    if (localIndex == 0u) {
+        outputValue[gl_WorkGroupID.x] = dvec4(
+            maximumU[0], maximumV[0], maximumUIndex[0], maximumVIndex[0]);
+    }
+}

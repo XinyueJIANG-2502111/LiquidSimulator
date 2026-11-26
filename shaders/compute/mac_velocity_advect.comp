@@ -1,0 +1,63 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalSourceBuffer { float uSource[]; };
+layout(std430, binding = 1) readonly buffer VerticalSourceBuffer { float vSource[]; };
+layout(std430, binding = 5) writeonly buffer HorizontalTargetBuffer { float uTarget[]; };
+layout(std430, binding = 6) writeonly buffer VerticalTargetBuffer { float vTarget[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+
+vec2 clampPosition(vec2 position) {
+    return clamp(position, vec2(0.0), vec2(gridSize) * cellSize);
+}
+
+float sampleU(vec2 position) {
+    const vec2 gridPosition = clampPosition(position) / cellSize - vec2(0.0, 0.5);
+    const vec2 maximum = vec2(float(gridSize.x), float(gridSize.y - 1u));
+    const vec2 clamped = clamp(gridPosition, vec2(0.0), maximum);
+    const uvec2 low = uvec2(floor(clamped));
+    const uvec2 high = min(low + uvec2(1u), uvec2(maximum));
+    const vec2 fraction = clamped - vec2(low);
+    const uint stride = gridSize.x + 1u;
+    const float a = mix(uSource[low.y * stride + low.x], uSource[low.y * stride + high.x], fraction.x);
+    const float b = mix(uSource[high.y * stride + low.x], uSource[high.y * stride + high.x], fraction.x);
+    return mix(a, b, fraction.y);
+}
+
+float sampleV(vec2 position) {
+    const vec2 gridPosition = clampPosition(position) / cellSize - vec2(0.5, 0.0);
+    const vec2 maximum = vec2(float(gridSize.x - 1u), float(gridSize.y));
+    const vec2 clamped = clamp(gridPosition, vec2(0.0), maximum);
+    const uvec2 low = uvec2(floor(clamped));
+    const uvec2 high = min(low + uvec2(1u), uvec2(maximum));
+    const vec2 fraction = clamped - vec2(low);
+    const float a = mix(vSource[low.y * gridSize.x + low.x], vSource[low.y * gridSize.x + high.x], fraction.x);
+    const float b = mix(vSource[high.y * gridSize.x + low.x], vSource[high.y * gridSize.x + high.x], fraction.x);
+    return mix(a, b, fraction.y);
+}
+
+vec2 sampleVelocity(vec2 position) { return vec2(sampleU(position), sampleV(position)); }
+
+vec2 traceBackward(vec2 target) {
+    const vec2 velocity = sampleVelocity(target);
+    const vec2 midpoint = clampPosition(target - 0.5 * timeStep * velocity);
+    return clampPosition(target - timeStep * sampleVelocity(midpoint));
+}
+
+void main() {
+    const uvec2 face = gl_GlobalInvocationID.xy;
+    if (face.y < gridSize.y && face.x <= gridSize.x) {
+        const vec2 target = vec2(float(face.x) * cellSize.x,
+            (float(face.y) + 0.5) * cellSize.y);
+        uTarget[face.y * (gridSize.x + 1u) + face.x] = sampleU(traceBackward(target));
+    }
+    if (face.x < gridSize.x && face.y <= gridSize.y) {
+        const vec2 target = vec2((float(face.x) + 0.5) * cellSize.x,
+            float(face.y) * cellSize.y);
+        vTarget[face.y * gridSize.x + face.x] = sampleV(traceBackward(target));
+    }
+}

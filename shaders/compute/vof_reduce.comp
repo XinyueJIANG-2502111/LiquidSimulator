@@ -1,0 +1,57 @@
+#version 460 core
+
+layout(local_size_x = 256) in;
+layout(std430, binding = 0) readonly buffer FractionBuffer { float fraction[]; };
+layout(std430, binding = 1) readonly buffer ValidBuffer { uint valid[]; };
+layout(std430, binding = 2) readonly buffer CompressionVolumeBuffer { float compressionVolume[]; };
+layout(std430, binding = 3) readonly buffer PlicValidBuffer { uint plicValid[]; };
+layout(std430, binding = 4) writeonly buffer FloatDiagnosticBuffer { float floatDiagnostic[]; };
+layout(std430, binding = 5) writeonly buffer UintDiagnosticBuffer { uint uintDiagnostic[]; };
+layout(std430, binding = 6) readonly buffer RepairVolumeBuffer { float repairVolume[]; };
+uniform uint cellCount;
+
+shared float sumValue[256]; shared float sumCompression[256];
+shared float minimumValue[256]; shared float maximumValue[256];
+shared float sumRepair[256];
+shared uint outOfBounds[256]; shared uint nonFinite[256]; shared uint invalidPlic[256];
+shared uint validCount[256];
+bool finiteValue(float value) { return !isnan(value) && !isinf(value); }
+
+void main() {
+    uint lane = gl_LocalInvocationIndex;
+    float sum = 0.0; float compression = 0.0; float repair = 0.0;
+    float minimum = 1.0 / 0.0; float maximum = -1.0 / 0.0;
+    uint bounds = 0u; uint invalid = 0u; uint plic = 0u; uint count = 0u;
+    for (uint index = lane; index < cellCount; index += 256u) {
+        if (valid[index] == 0u) continue;
+        float value = fraction[index]; ++count;
+        if (!finiteValue(value)) { ++invalid; continue; }
+        sum += value; compression += compressionVolume[index]; repair += repairVolume[index];
+        minimum = min(minimum, value); maximum = max(maximum, value);
+        if (value < -5.0e-6 || value > 1.0 + 5.0e-6) ++bounds;
+        if (value > 1.0e-7 && value < 1.0 - 1.0e-7 && plicValid[index] == 0u) ++plic;
+    }
+    sumValue[lane] = sum; sumCompression[lane] = compression; sumRepair[lane] = repair;
+    minimumValue[lane] = minimum; maximumValue[lane] = maximum;
+    outOfBounds[lane] = bounds; nonFinite[lane] = invalid; invalidPlic[lane] = plic; validCount[lane] = count;
+    barrier();
+    for (uint offset = 128u; offset > 0u; offset >>= 1u) {
+        if (lane < offset) {
+            sumValue[lane] += sumValue[lane + offset]; sumCompression[lane] += sumCompression[lane + offset];
+            sumRepair[lane] += sumRepair[lane + offset];
+            minimumValue[lane] = min(minimumValue[lane], minimumValue[lane + offset]);
+            maximumValue[lane] = max(maximumValue[lane], maximumValue[lane + offset]);
+            outOfBounds[lane] += outOfBounds[lane + offset]; nonFinite[lane] += nonFinite[lane + offset];
+            invalidPlic[lane] += invalidPlic[lane + offset]; validCount[lane] += validCount[lane + offset];
+        }
+        barrier();
+    }
+    if (lane == 0u) {
+        floatDiagnostic[0] = sumValue[0]; floatDiagnostic[1] = sumCompression[0];
+        floatDiagnostic[2] = validCount[0] != 0u ? minimumValue[0] : 0.0;
+        floatDiagnostic[3] = validCount[0] != 0u ? maximumValue[0] : 0.0;
+        floatDiagnostic[4] = sumRepair[0];
+        uintDiagnostic[0] = outOfBounds[0]; uintDiagnostic[1] = nonFinite[0];
+        uintDiagnostic[2] = invalidPlic[0]; uintDiagnostic[3] = validCount[0];
+    }
+}

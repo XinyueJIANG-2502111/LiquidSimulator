@@ -1,0 +1,58 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer PreviousCellTypeBuffer { uint previousCellType[]; };
+layout(std430, binding = 2) readonly buffer ParticleCellCountBuffer { uint particleCellCount[]; };
+layout(std430, binding = 3) buffer FlipHistoryBuffer { uint flipHistory[]; };
+layout(std430, binding = 4) writeonly buffer DiagnosticBuffer { uint diagnosticFlag[]; };
+layout(std430, binding = 5) buffer CounterBuffer { uint counter[]; };
+
+uniform uvec2 gridSize;
+
+const uint FLUID = 0u;
+const uint AIR = 1u;
+const uint SOLID = 2u;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    const uint elementCount = gridSize.x * gridSize.y;
+    if (index >= elementCount) return;
+    const uint x = index % gridSize.x;
+    const uint y = index / gridSize.x;
+    const bool changedPhase =
+        (cellType[index] == FLUID && previousCellType[index] == AIR) ||
+        (cellType[index] == AIR && previousCellType[index] == FLUID);
+    if (changedPhase) {
+        atomicAdd(counter[6], 1u);
+        const uint history = atomicAdd(flipHistory[index], 1u) + 1u;
+        if (history >= 2u) atomicAdd(counter[9], 1u);
+    }
+    if (cellType[index] == AIR && particleCellCount[index] != 0u) {
+        atomicAdd(counter[7], 1u);
+    }
+    atomicMax(counter[8], particleCellCount[index]);
+
+    uint flags = changedPhase ? 4u : 0u;
+    if (cellType[index] == AIR && x > 0u && x + 1u < gridSize.x &&
+        y > 0u && y + 1u < gridSize.y) {
+        const uint neighbors[4] = uint[4](
+            cellType[index - 1u], cellType[index + 1u],
+            cellType[index - gridSize.x], cellType[index + gridSize.x]);
+        uint fluidNeighbors = 0u;
+        uint solidNeighbors = 0u;
+        for (uint neighbor = 0u; neighbor < 4u; ++neighbor) {
+            fluidNeighbors += neighbors[neighbor] == FLUID ? 1u : 0u;
+            solidNeighbors += neighbors[neighbor] == SOLID ? 1u : 0u;
+        }
+        if (fluidNeighbors == 4u) {
+            flags |= 1u;
+            atomicAdd(counter[4], 1u);
+        } else if (fluidNeighbors == 3u && solidNeighbors == 0u) {
+            flags |= 2u;
+            atomicAdd(counter[5], 1u);
+        }
+    }
+    diagnosticFlag[index] = flags;
+}

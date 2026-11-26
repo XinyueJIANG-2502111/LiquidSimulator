@@ -1,0 +1,21 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer SolidMaskBuffer { uint solidMask[]; };
+layout(std430, binding = 2) writeonly buffer PreviousCellTypeBuffer { uint previousCellType[]; };
+layout(std430, binding = 3) writeonly buffer ParticleCellCountBuffer { uint particleCellCount[]; };
+
+uniform uint elementCount;
+
+const uint AIR = 1u;
+const uint SOLID = 2u;
+
+void main() {
+    const uint index = gl_GlobalInvocationID.x;
+    if (index >= elementCount) return;
+    previousCellType[index] = cellType[index];
+    cellType[index] = solidMask[index] != 0u ? SOLID : AIR;
+    particleCellCount[index] = 0u;
+}

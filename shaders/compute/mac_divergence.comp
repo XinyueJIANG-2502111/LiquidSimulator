@@ -1,0 +1,32 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer PressureBuffer { double pressure[]; };
+layout(std430, binding = 3) writeonly buffer DivergenceBuffer { float divergence[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+
+const uint FLUID = 0u;
+
+void main() {
+    const uvec2 cell = gl_GlobalInvocationID.xy;
+    if (cell.x >= gridSize.x || cell.y >= gridSize.y) return;
+
+    const uint cellIndex = cell.y * gridSize.x + cell.x;
+    if (cellType[cellIndex] != FLUID) {
+        divergence[cellIndex] = 0.0;
+        return;
+    }
+
+    const uint uStride = gridSize.x + 1u;
+    const uint uLeft = cell.y * uStride + cell.x;
+    const uint vBottom = cell.y * gridSize.x + cell.x;
+    divergence[cellIndex] =
+        (u[uLeft + 1u] - u[uLeft]) / cellSize.x +
+        (v[vBottom + gridSize.x] - v[vBottom]) / cellSize.y;
+}

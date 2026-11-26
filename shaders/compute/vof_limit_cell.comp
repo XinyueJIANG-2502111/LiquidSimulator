@@ -1,0 +1,70 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(std430, binding = 0) readonly buffer SourceFraction { float sourceFraction[]; };
+layout(std430, binding = 1) readonly buffer ValidMask { uint validMask[]; };
+layout(std430, binding = 2) readonly buffer CompressionCoefficient { uint compressionCoefficient[]; };
+layout(std430, binding = 3) readonly buffer FaceFlux { float faceFlux[]; };
+layout(std430, binding = 4) readonly buffer HorizontalVelocity { float horizontalVelocity[]; };
+layout(std430, binding = 5) readonly buffer VerticalVelocity { float verticalVelocity[]; };
+layout(std430, binding = 6) writeonly buffer OutgoingScale { float outgoingScale[]; };
+layout(std430, binding = 7) writeonly buffer IncomingScale { float incomingScale[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+uniform uint xDirection;
+
+uint cellIndex(uint x, uint y) { return y * gridSize.x + x; }
+uint xFaceIndex(uint x, uint y) { return y * (gridSize.x + 1u) + x; }
+uint yFaceIndex(uint x, uint y) { return y * gridSize.x + x; }
+
+void main() {
+    const uvec2 cell = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(cell, gridSize))) {
+        return;
+    }
+    const uint index = cellIndex(cell.x, cell.y);
+    if (validMask[index] == 0u) {
+        outgoingScale[index] = 1.0;
+        incomingScale[index] = 1.0;
+        return;
+    }
+
+    float lowFlux;
+    float highFlux;
+    float directionalDivergence;
+    if (xDirection != 0u) {
+        lowFlux = faceFlux[xFaceIndex(cell.x, cell.y)];
+        highFlux = faceFlux[xFaceIndex(cell.x + 1u, cell.y)];
+        directionalDivergence =
+            (horizontalVelocity[xFaceIndex(cell.x + 1u, cell.y)] -
+             horizontalVelocity[xFaceIndex(cell.x, cell.y)]) / cellSize.x;
+    } else {
+        lowFlux = faceFlux[yFaceIndex(cell.x, cell.y)];
+        highFlux = faceFlux[yFaceIndex(cell.x, cell.y + 1u)];
+        directionalDivergence =
+            (verticalVelocity[yFaceIndex(cell.x, cell.y + 1u)] -
+             verticalVelocity[yFaceIndex(cell.x, cell.y)]) / cellSize.y;
+    }
+
+    const float incoming = max(lowFlux, 0.0) + max(-highFlux, 0.0);
+    const float outgoing = max(-lowFlux, 0.0) + max(highFlux, 0.0);
+    const float cellArea = cellSize.x * cellSize.y;
+    const float compression = float(compressionCoefficient[index]) *
+        timeStep * directionalDivergence;
+    const float base = sourceFraction[index] + compression;
+    const float candidate = base + (incoming - outgoing) / cellArea;
+
+    float outScale = 1.0;
+    float inScale = 1.0;
+    if (candidate < 0.0 && outgoing > 0.0) {
+        outScale = clamp((base * cellArea + incoming) / outgoing, 0.0, 1.0);
+    }
+    if (candidate > 1.0 && incoming > 0.0) {
+        inScale = clamp(((1.0 - base) * cellArea + outgoing) / incoming, 0.0, 1.0);
+    }
+    outgoingScale[index] = outScale;
+    incomingScale[index] = inScale;
+}

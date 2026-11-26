@@ -1,0 +1,76 @@
+#version 460 core
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 5) readonly buffer ReductionBuffer { dvec4 reductionValue[]; };
+layout(std430, binding = 9) buffer ScalarBuffer { double scalar[]; };
+layout(std430, binding = 10) buffer PressureControl { double pressureControl[]; };
+
+uniform uint operation;
+uniform uint pressureControlEnabled;
+uniform double residualTolerance;
+uniform uint completedIterations;
+uniform uint maximumIterations;
+uniform uint submittedIterations;
+
+bool invalid(double value) { return isnan(value) || isinf(value); }
+
+void main() {
+    const double value = reductionValue[0].x;
+    if (operation == 3u) {
+        if (uint(pressureControl[0] + 0.5) != 0u) {
+            pressureControl[7] = double(submittedIterations);
+            return;
+        }
+        const double squaredSum = reductionValue[0].x;
+        const double maximumAbsolute = reductionValue[0].y;
+        const double equationCount = reductionValue[0].z;
+        pressureControl[1] = double(completedIterations);
+        pressureControl[2] = equationCount > 0.0 && squaredSum >= 0.0
+            ? sqrt(squaredSum / equationCount) : 0.0;
+        pressureControl[3] = maximumAbsolute;
+        pressureControl[4] = equationCount;
+        pressureControl[6] += 1.0;
+        pressureControl[7] = double(submittedIterations);
+        if (pressureControl[6] == 1.0) {
+            pressureControl[8] = pressureControl[2];
+            pressureControl[9] = pressureControl[3];
+        }
+
+        if (pressureControl[5] != 0.0 ||
+            (completedIterations > 0u && scalar[3] != 0.0)) {
+            pressureControl[0] = 3.0;
+            pressureControl[5] = 1.0;
+        } else if (invalid(squaredSum) || invalid(maximumAbsolute) ||
+                   invalid(equationCount) || squaredSum < 0.0 ||
+                   maximumAbsolute < 0.0 || equationCount < 0.0) {
+            pressureControl[0] = 5.0;
+            pressureControl[5] = 1.0;
+        } else if (pressureControl[2] <= residualTolerance) {
+            pressureControl[0] = 1.0;
+        } else if (completedIterations >= maximumIterations) {
+            pressureControl[0] = 2.0;
+        } else {
+            pressureControl[0] = 0.0;
+        }
+        return;
+    }
+
+    if (pressureControlEnabled != 0u && uint(pressureControl[0] + 0.5) != 0u) return;
+    if (operation == 0u) {
+        scalar[0] = value;
+        scalar[1] = 0.0;
+        scalar[2] = 0.0;
+        scalar[3] = invalid(value) || value < 0.0 ? 1.0 : 0.0;
+    } else if (operation == 1u) {
+        if (invalid(value) || value <= 1.0e-300 || invalid(scalar[0])) scalar[3] = 1.0;
+        else scalar[1] = scalar[0] / value;
+    } else {
+        if (invalid(value) || value < 0.0 || invalid(scalar[0]) || scalar[0] <= 1.0e-300) {
+            scalar[3] = 1.0;
+        } else {
+            scalar[2] = value / scalar[0];
+            scalar[0] = value;
+        }
+    }
+}

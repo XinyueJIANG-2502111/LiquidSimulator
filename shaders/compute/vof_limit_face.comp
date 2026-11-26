@@ -1,0 +1,71 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(std430, binding = 0) readonly buffer ValidMask { uint validMask[]; };
+layout(std430, binding = 1) readonly buffer OutgoingScale { float outgoingScale[]; };
+layout(std430, binding = 2) readonly buffer IncomingScale { float incomingScale[]; };
+layout(std430, binding = 3) buffer FaceFlux { float faceFlux[]; };
+layout(std430, binding = 4) buffer LimitedMask { uint limitedMask[]; };
+layout(std430, binding = 5) buffer Status { uint status[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform uint xDirection;
+
+uint cellIndex(uint x, uint y) { return y * gridSize.x + x; }
+uint xFaceIndex(uint x, uint y) { return y * (gridSize.x + 1u) + x; }
+uint yFaceIndex(uint x, uint y) { return y * gridSize.x + x; }
+
+void main() {
+    const uvec2 face = gl_GlobalInvocationID.xy;
+    const uvec2 faceGrid = xDirection != 0u
+        ? uvec2(gridSize.x + 1u, gridSize.y)
+        : uvec2(gridSize.x, gridSize.y + 1u);
+    if (any(greaterThanEqual(face, faceGrid))) {
+        return;
+    }
+
+    const uint faceIndex = xDirection != 0u
+        ? xFaceIndex(face.x, face.y)
+        : yFaceIndex(face.x, face.y);
+    const bool boundary = xDirection != 0u
+        ? (face.x == 0u || face.x == gridSize.x)
+        : (face.y == 0u || face.y == gridSize.y);
+    if (boundary) {
+        faceFlux[faceIndex] = 0.0;
+        return;
+    }
+
+    const uvec2 lowCell = xDirection != 0u
+        ? uvec2(face.x - 1u, face.y)
+        : uvec2(face.x, face.y - 1u);
+    const uvec2 highCell = xDirection != 0u
+        ? uvec2(face.x, face.y)
+        : uvec2(face.x, face.y);
+    const uint lowIndex = cellIndex(lowCell.x, lowCell.y);
+    const uint highIndex = cellIndex(highCell.x, highCell.y);
+    if (validMask[lowIndex] == 0u || validMask[highIndex] == 0u) {
+        faceFlux[faceIndex] = 0.0;
+        return;
+    }
+
+    const float original = faceFlux[faceIndex];
+    if (original == 0.0) {
+        return;
+    }
+    const uint donor = original > 0.0 ? lowIndex : highIndex;
+    const uint receiver = original > 0.0 ? highIndex : lowIndex;
+    const float scale = min(outgoingScale[donor], incomingScale[receiver]);
+    if (scale < 1.0) {
+        faceFlux[faceIndex] = original * scale;
+        if (atomicExchange(limitedMask[faceIndex], 1u) == 0u) {
+            atomicAdd(status[5], 1u);
+        } else {
+            atomicAdd(status[6], 1u);
+        }
+        if (scale < 0.01) {
+            atomicAdd(status[7], 1u);
+        }
+    }
+}

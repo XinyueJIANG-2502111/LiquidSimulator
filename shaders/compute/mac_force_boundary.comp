@@ -1,0 +1,39 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 velocityDelta;
+
+const uint FLUID = 0u;
+const uint SOLID = 2u;
+
+uint cellIndex(uvec2 cell) { return cell.y * gridSize.x + cell.x; }
+
+void main() {
+    const uvec2 face = gl_GlobalInvocationID.xy;
+    if (face.y < gridSize.y && face.x <= gridSize.x) {
+        const uint index = face.y * (gridSize.x + 1u) + face.x;
+        if (face.x == 0u || face.x == gridSize.x) u[index] = 0.0;
+        else {
+            const uint left = cellIndex(face - uvec2(1u, 0u));
+            const uint right = cellIndex(face);
+            if (cellType[left] == SOLID || cellType[right] == SOLID) u[index] = 0.0;
+            else if (cellType[left] == FLUID || cellType[right] == FLUID) u[index] += velocityDelta.x;
+        }
+    }
+    if (face.x < gridSize.x && face.y <= gridSize.y) {
+        const uint index = face.y * gridSize.x + face.x;
+        if (face.y == 0u || face.y == gridSize.y) v[index] = 0.0;
+        else {
+            const uint below = cellIndex(face - uvec2(0u, 1u));
+            const uint above = cellIndex(face);
+            if (cellType[below] == SOLID || cellType[above] == SOLID) v[index] = 0.0;
+            else if (cellType[below] == FLUID || cellType[above] == FLUID) v[index] += velocityDelta.y;
+        }
+    }
+}

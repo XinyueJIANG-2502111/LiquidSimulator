@@ -1,0 +1,36 @@
+#version 460 core
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 1) readonly buffer SolidMaskBuffer { uint solidMask[]; };
+layout(std430, binding = 2) readonly buffer ParticleBuffer { vec4 particle[]; };
+layout(std430, binding = 3) buffer CounterBuffer { uint counter[]; };
+layout(std430, binding = 4) buffer ParticleCellCountBuffer { uint particleCellCount[]; };
+
+uniform uint particleCount;
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+
+const uint FLUID = 0u;
+
+void main() {
+    const uint particleIndex = gl_GlobalInvocationID.x;
+    if (particleIndex >= particleCount) return;
+    const vec4 state = particle[particleIndex];
+    if (state.z < 0.5) return;
+    if (any(isnan(state.xy)) || any(isinf(state.xy))) {
+        atomicAdd(counter[1], 1u);
+        return;
+    }
+    atomicAdd(counter[0], 1u);
+    const vec2 epsilon = cellSize * 1.0e-3;
+    const vec2 maximum = vec2(gridSize) * cellSize - epsilon;
+    const vec2 position = clamp(state.xy, epsilon, maximum);
+    const uvec2 cell = min(uvec2(position / cellSize), gridSize - uvec2(1u));
+    const uint cellIndex = cell.y * gridSize.x + cell.x;
+    if (solidMask[cellIndex] == 0u) {
+        atomicAdd(particleCellCount[cellIndex], 1u);
+        atomicMin(cellType[cellIndex], FLUID);
+    }
+}

@@ -1,0 +1,110 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalVelocityBuffer { float u[]; };
+layout(std430, binding = 1) readonly buffer VerticalVelocityBuffer { float v[]; };
+layout(std430, binding = 2) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 3) readonly buffer OriginalPhiBuffer { float originalPhi[]; };
+layout(std430, binding = 4) readonly buffer OriginalConfidenceBuffer { uint originalConfidence[]; };
+layout(std430, binding = 5) readonly buffer ForwardPhiBuffer { float forwardPhi[]; };
+layout(std430, binding = 6) readonly buffer ForwardConfidenceBuffer { uint forwardConfidence[]; };
+layout(std430, binding = 7) readonly buffer BackwardPhiBuffer { float backwardPhi[]; };
+layout(std430, binding = 8) readonly buffer BackwardConfidenceBuffer { uint backwardConfidence[]; };
+layout(std430, binding = 9) writeonly buffer TargetPhiBuffer { float targetPhi[]; };
+layout(std430, binding = 10) writeonly buffer TargetConfidenceBuffer { uint targetConfidence[]; };
+layout(std430, binding = 11) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float timeStep;
+
+const uint SOLID = 2u;
+
+float sampleU(vec2 position) {
+    vec2 q = clamp(position / cellSize - vec2(0.0, 0.5), vec2(0.0),
+        vec2(float(gridSize.x), float(gridSize.y - 1u)));
+    uvec2 lo = uvec2(floor(q));
+    uvec2 hi = min(lo + uvec2(1u), uvec2(gridSize.x, gridSize.y - 1u));
+    vec2 f = q - vec2(lo);
+    uint stride = gridSize.x + 1u;
+    return mix(mix(u[lo.y * stride + lo.x], u[lo.y * stride + hi.x], f.x),
+        mix(u[hi.y * stride + lo.x], u[hi.y * stride + hi.x], f.x), f.y);
+}
+
+float sampleV(vec2 position) {
+    vec2 q = clamp(position / cellSize - vec2(0.5, 0.0), vec2(0.0),
+        vec2(float(gridSize.x - 1u), float(gridSize.y)));
+    uvec2 lo = uvec2(floor(q));
+    uvec2 hi = min(lo + uvec2(1u), uvec2(gridSize.x - 1u, gridSize.y));
+    vec2 f = q - vec2(lo);
+    return mix(mix(v[lo.y * gridSize.x + lo.x], v[lo.y * gridSize.x + hi.x], f.x),
+        mix(v[hi.y * gridSize.x + lo.x], v[hi.y * gridSize.x + hi.x], f.x), f.y);
+}
+
+vec2 velocity(vec2 position) { return vec2(sampleU(position), sampleV(position)); }
+
+void main() {
+    uvec2 cell = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(cell, gridSize))) return;
+    uint index = cell.y * gridSize.x + cell.x;
+    if (cellType[index] == SOLID) {
+        targetPhi[index] = forwardPhi[index];
+        targetConfidence[index] = 0u;
+        return;
+    }
+
+    vec2 position = (vec2(cell) + vec2(0.5)) * cellSize;
+    vec2 minimumPosition = vec2(0.5) * cellSize;
+    vec2 maximumPosition = (vec2(gridSize) - vec2(0.5)) * cellSize;
+    vec2 firstVelocity = velocity(position);
+    vec2 middleVelocity = velocity(clamp(
+        position - 0.5 * timeStep * firstVelocity, minimumPosition, maximumPosition));
+    if (any(isnan(firstVelocity)) || any(isinf(firstVelocity)) ||
+        any(isnan(middleVelocity)) || any(isinf(middleVelocity))) {
+        targetPhi[index] = forwardPhi[index];
+        targetConfidence[index] = 0u;
+        atomicAdd(diagnostic[14], 1u);
+        atomicAdd(diagnostic[19], 1u);
+        return;
+    }
+    vec2 rawSource = position - timeStep * middleVelocity;
+    vec2 source = clamp(rawSource, minimumPosition, maximumPosition);
+    vec2 q = source / cellSize - vec2(0.5);
+    uvec2 lo = uvec2(floor(q));
+    uvec2 hi = min(lo + uvec2(1u), gridSize - uvec2(1u));
+    uint stencil[4] = uint[4](
+        lo.y * gridSize.x + lo.x, lo.y * gridSize.x + hi.x,
+        hi.y * gridSize.x + lo.x, hi.y * gridSize.x + hi.x);
+    bool reliable = all(equal(rawSource, source)) &&
+        forwardConfidence[index] != 0u && backwardConfidence[index] != 0u;
+    float minimumValue = 3.402823466e+38;
+    float maximumValue = -3.402823466e+38;
+    for (int k = 0; k < 4; ++k) {
+        float value = originalPhi[stencil[k]];
+        reliable = reliable && originalConfidence[stencil[k]] != 0u &&
+            !isnan(value) && !isinf(value);
+        minimumValue = min(minimumValue, value);
+        maximumValue = max(maximumValue, value);
+    }
+    float corrected = forwardPhi[index] +
+        0.5 * (originalPhi[index] - backwardPhi[index]);
+    if (!reliable) {
+        targetPhi[index] = forwardPhi[index];
+        targetConfidence[index] = forwardConfidence[index];
+        atomicAdd(diagnostic[14], 1u);
+        return;
+    }
+    if (isnan(corrected) || isinf(corrected)) {
+        targetPhi[index] = forwardPhi[index];
+        targetConfidence[index] = 0u;
+        atomicAdd(diagnostic[14], 1u);
+        atomicAdd(diagnostic[19], 1u);
+        return;
+    }
+    float limited = clamp(corrected, minimumValue, maximumValue);
+    if (limited != corrected) atomicAdd(diagnostic[20], 1u);
+    targetPhi[index] = limited;
+    targetConfidence[index] = 1u;
+    atomicAdd(diagnostic[21], 1u);
+}

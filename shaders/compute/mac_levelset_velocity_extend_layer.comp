@@ -1,0 +1,120 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer HorizontalInput { float uInput[]; };
+layout(std430, binding = 1) readonly buffer VerticalInput { float vInput[]; };
+layout(std430, binding = 2) readonly buffer HorizontalValidInput { uint uValidInput[]; };
+layout(std430, binding = 3) readonly buffer VerticalValidInput { uint vValidInput[]; };
+layout(std430, binding = 4) readonly buffer CellTypeBuffer { uint cellType[]; };
+layout(std430, binding = 5) readonly buffer PhiBuffer { float phi[]; };
+layout(std430, binding = 6) readonly buffer ConfidenceBuffer { uint confidence[]; };
+layout(std430, binding = 7) writeonly buffer HorizontalOutput { float uOutput[]; };
+layout(std430, binding = 8) writeonly buffer VerticalOutput { float vOutput[]; };
+layout(std430, binding = 9) writeonly buffer HorizontalValidOutput { uint uValidOutput[]; };
+layout(std430, binding = 10) writeonly buffer VerticalValidOutput { uint vValidOutput[]; };
+layout(std430, binding = 11) buffer DiagnosticBuffer { uint diagnostic[]; };
+
+uniform uvec2 gridSize;
+uniform vec2 cellSize;
+uniform float bandWidth;
+uniform uint finalLayer;
+
+const uint SOLID = 2u;
+
+uint cellIndex(uvec2 cell) { return cell.y * gridSize.x + cell.x; }
+
+float cellPhi(ivec2 cell) {
+    ivec2 clamped = clamp(cell, ivec2(0), ivec2(gridSize) - ivec2(1));
+    return phi[uint(clamped.y) * gridSize.x + uint(clamped.x)];
+}
+
+vec2 phiGradient(vec2 cellPosition) {
+    ivec2 cell = ivec2(floor(cellPosition));
+    float gx = (cellPhi(cell + ivec2(1, 0)) - cellPhi(cell - ivec2(1, 0))) /
+        (2.0 * cellSize.x);
+    float gy = (cellPhi(cell + ivec2(0, 1)) - cellPhi(cell - ivec2(0, 1))) /
+        (2.0 * cellSize.y);
+    float lengthValue = length(vec2(gx, gy));
+    return lengthValue > 1.0e-12 ? vec2(gx, gy) / lengthValue : vec2(0.0);
+}
+
+float uPhi(uvec2 face) {
+    ivec2 left = ivec2(int(face.x) - 1, int(face.y));
+    ivec2 right = ivec2(int(face.x), int(face.y));
+    return 0.5 * (cellPhi(left) + cellPhi(right));
+}
+
+float vPhi(uvec2 face) {
+    ivec2 below = ivec2(int(face.x), int(face.y) - 1);
+    ivec2 above = ivec2(int(face.x), int(face.y));
+    return 0.5 * (cellPhi(below) + cellPhi(above));
+}
+
+void main() {
+    uvec2 face = gl_GlobalInvocationID.xy;
+    if (face.y < gridSize.y && face.x <= gridSize.x) {
+        uint width = gridSize.x + 1u;
+        uint index = face.y * width + face.x;
+        if (uValidInput[index] != 0u) {
+            uOutput[index] = uInput[index];
+            uValidOutput[index] = 1u;
+        } else {
+            float centerPhi = abs(uPhi(face));
+            vec2 normal = phiGradient(vec2(face.x, face.y) + vec2(0.0, 0.5));
+            float weighted = 0.0;
+            float weights = 0.0;
+            ivec2 offsets[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+            for (int k = 0; k < 4; ++k) {
+                ivec2 neighbor = ivec2(face) + offsets[k];
+                if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= int(width) ||
+                    neighbor.y >= int(gridSize.y)) continue;
+                uint neighborIndex = uint(neighbor.y) * width + uint(neighbor.x);
+                float neighborPhi = abs(uPhi(uvec2(neighbor)));
+                if (uValidInput[neighborIndex] == 0u || neighborPhi > centerPhi + 1.0e-6) continue;
+                vec2 direction = normalize(vec2(offsets[k]));
+                float weight = max(abs(dot(normal, direction)), 0.125);
+                weighted += weight * uInput[neighborIndex];
+                weights += weight;
+            }
+            bool inBand = centerPhi <= bandWidth;
+            bool valid = inBand && weights > 0.0;
+            uOutput[index] = valid ? weighted / weights : uInput[index];
+            uValidOutput[index] = valid ? 1u : 0u;
+            if (valid) atomicAdd(diagnostic[33], 1u);
+            else if (finalLayer != 0u && inBand) atomicAdd(diagnostic[34], 1u);
+        }
+    }
+    if (face.x < gridSize.x && face.y <= gridSize.y) {
+        uint width = gridSize.x;
+        uint index = face.y * width + face.x;
+        if (vValidInput[index] != 0u) {
+            vOutput[index] = vInput[index];
+            vValidOutput[index] = 1u;
+        } else {
+            float centerPhi = abs(vPhi(face));
+            vec2 normal = phiGradient(vec2(face.x, face.y) + vec2(0.5, 0.0));
+            float weighted = 0.0;
+            float weights = 0.0;
+            ivec2 offsets[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+            for (int k = 0; k < 4; ++k) {
+                ivec2 neighbor = ivec2(face) + offsets[k];
+                if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= int(width) ||
+                    neighbor.y > int(gridSize.y)) continue;
+                uint neighborIndex = uint(neighbor.y) * width + uint(neighbor.x);
+                float neighborPhi = abs(vPhi(uvec2(neighbor)));
+                if (vValidInput[neighborIndex] == 0u || neighborPhi > centerPhi + 1.0e-6) continue;
+                vec2 direction = normalize(vec2(offsets[k]));
+                float weight = max(abs(dot(normal, direction)), 0.125);
+                weighted += weight * vInput[neighborIndex];
+                weights += weight;
+            }
+            bool inBand = centerPhi <= bandWidth;
+            bool valid = inBand && weights > 0.0;
+            vOutput[index] = valid ? weighted / weights : vInput[index];
+            vValidOutput[index] = valid ? 1u : 0u;
+            if (valid) atomicAdd(diagnostic[33], 1u);
+            else if (finalLayer != 0u && inBand) atomicAdd(diagnostic[34], 1u);
+        }
+    }
+}
